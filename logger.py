@@ -117,9 +117,10 @@ def initDevices():
                 channelID = addChannel(device["ID"], channel["DeviceChannel"], channel["Type"], channel["ShortName"], channel["LongName"], channel["Unit"])
             channel["ID"] = channelID
 
+    return devices
+
 if __name__ == "__main__":
-    devices = {}
-    initDevices()
+    devices = initDevices()
     while(True):
         for device in devices:
             print(device["Name"])
@@ -128,6 +129,6 @@ if __name__ == "__main__":
                 value = device["Object"].getValue(channel["DeviceChannel"])
                 timestamp = datetime.datetime.now().isoformat()
                 print("{}\t{}".format(timestamp, value))
-                writeValue(device["ID"], channel["ID"], time, value)
+                writeValue(device["ID"], channel["ID"], timestamp, value)
 
         time.sleep(updateInterval)

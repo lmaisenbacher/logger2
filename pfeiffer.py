@@ -223,7 +223,7 @@ class TPG26x(object):
         :param channel: The measurement channel (1 or 2)
         :return: The measured value in mBar
         """
-        return self.pressure_gauge(channel+1)[0]
+        return self.pressure_gauge(channel)[0]
 
 class TPG262(TPG26x):
     """Driver for the TPG 262 dual channel measurement and control unit"""
