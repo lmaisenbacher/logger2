@@ -20,6 +20,7 @@ devices = []
 
 def writeValue(deviceID, deviceChannel, time, value, measurementType, name, longName, Unit):
     """Write a new measured value to the database
+
     :param deviceID: ID of the measurement device
     :param deviceChannel: Channel of the measurement device
     :param time: Timestamp in ISO format
@@ -34,6 +35,7 @@ def writeValue(deviceID, deviceChannel, time, value, measurementType, name, long
 
 def checkDeviceExists(name, address, deviceType, model):
     """Check if a device with specified name, address and type already exists in the database.
+
     :param name: Device name
     :param address: Device address
     :param deviceType: Device type
@@ -49,6 +51,7 @@ def checkDeviceExists(name, address, deviceType, model):
 
 def addDevice(name, address, deviceType, model):
     """Add a new device to the database.
+
     :param name: Device name
     :param address: Device address
     :param deviceType: Device type
