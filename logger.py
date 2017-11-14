@@ -122,7 +122,9 @@ if __name__ == "__main__":
     initDevices()
     while(True):
         for device in devices:
+            print(device["Name"])
             for channel in device["Channels"]:
+                print(channel["ShortName"])
                 value = device["Object"].getValue(channel["DeviceChannel"])
                 timestamp = datetime.datetime.now().isoformat()
                 print("{}\t{}".format(timestamp, value))
