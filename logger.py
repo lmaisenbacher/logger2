@@ -83,7 +83,7 @@ def addChannel(deviceID, deviceChannel, measurementType, shortName, longName, un
     :param longName: Full description of the channel
     :param unit: Unit of the measurement
     """
-    c.execute("INSERT INTO Channels (DeviceID, DeviceChannel, Type, ShortName, LongName, Unit)",(deviceID, deviceChannel, measurementType, shortName, longName, unit))
+    c.execute("INSERT INTO Channels (DeviceID, DeviceChannel, Type, ShortName, LongName, Unit) VALUES (?,?,?,?,?,?)",(deviceID, deviceChannel, measurementType, shortName, longName, unit))
     conn.commit()
 
 def initDevices():
