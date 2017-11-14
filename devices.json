@@ -1,0 +1,58 @@
+[
+    {   "Name":"Pressure gauge chamber 1",
+        "Address":"COM7",
+        "Type":"Pressure Gauge",
+        "Model":"Pfeiffer Vacuum TPG 261",
+        "Channels":
+        [
+            {   "DeviceChannel":1,
+                "Type":"PRESSURE",
+                "ShortName":"p (Chamber 1)",
+                "LongName":"Pressure (Chamber 1)",
+                "Unit":"mBar"
+            }
+        ]
+    },
+    {   "Name":"Pressure gauge chamber 2",
+        "Address":"COM11",
+        "Type":"Pressure Gauge",
+        "Model":"Pfeiffer Vacuum TPG 261",
+        "Channels":
+        [
+            {   "DeviceChannel":1,
+                "Type":"PRESSURE",
+                "ShortName":"p (Chamber 2)",
+                "LongName":"Pressure (Chamber 2)",
+                "Unit":"mBar"
+            }
+        ]
+    },
+    {   "Name":"Pressure gauge chamber 3",
+        "Address":"COM5",
+        "Type":"Pressure Gauge",
+        "Model":"VACOM COLDION CU-100",
+        "Channels":
+        [
+            {   "DeviceChannel":1,
+                "Type":"PRESSURE",
+                "ShortName":"p (Chamber 3)",
+                "LongName":"Pressure (Chamber 3)",
+                "Unit":"mBar"
+            }
+        ]
+    },
+    {   "Name":"Pressure gauge chamber 4",
+        "Address":"COM8",
+        "Type":"Pressure Gauge",
+        "Model":"Pfeiffer Vacuum TPG 261",
+        "Channels":
+        [
+            {   "DeviceChannel":1,
+                "Type":"PRESSURE",
+                "ShortName":"p (Chamber 4)",
+                "LongName":"Pressure (Chamber 4)",
+                "Unit":"mBar"
+            }
+        ]
+    }
+]

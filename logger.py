@@ -1,36 +1,32 @@
 import sqlite3
-import configparser
+import configparser, json
 import pfeiffer, vacom
 import time
 from serial import SerialException
 import datetime
 
-updateInteval = 1000 # Update interval in ms
-dbpath = "database.sqlite"
 configpath = "config.ini"
-
-conn = sqlite3.connect(dbpath)
-
-c = conn.cursor()
 
 conf = configparser.ConfigParser()
 conf.read(configpath)
 
-devices = []
+dbpath = conf["Database"]["path"]
+updateInterval = int(conf["Update"]["interval"])
 
-def writeValue(deviceID, deviceChannel, time, value, measurementType, name, longName, Unit):
+deviceConfigPath = conf["Devices"]["configpath"]
+
+conn = sqlite3.connect(dbpath)
+c = conn.cursor()
+
+def writeValue(deviceID, channelID, time, value):
     """Write a new measured value to the database
 
     :param deviceID: ID of the measurement device
-    :param deviceChannel: Channel of the measurement device
+    :param channelID: ID of the measurement channel
     :param time: Timestamp in ISO format
     :param value: Measured value
-    :param measurementType: Type of the measurement
-    :param name: Short name of the measured value
-    :param longName: Long name of the measured value
-    :param unit: Unit of the measured value
     """
-    c.execute("INSERT INTO Measurements (DeviceID, DeviceChannel, Time, Value, Type, Name, LongName, Unit) VALUES (?,?,?,?,?,?,?,?)", (deviceID, deviceChannel, time, value, measurementType, name, longName, unit))
+    c.execute("INSERT INTO Measurements (DeviceID, ChannelID, Time, Value) VALUES (?,?,?,?)", (deviceID, channelID, time, value))
     conn.commit()
 
 def checkDeviceExists(name, address, deviceType, model):
@@ -60,38 +56,77 @@ def addDevice(name, address, deviceType, model):
     c.execute("INSERT INTO Devices (Name, Address, Type, Model) VALUES (?,?,?,?)", (name, address, deviceType, model))
     conn.commit()
 
-def readConfig():
-    for section in conf.sections():
-        name = conf[section]["name"]
-        address = conf[section]["address"]
-        deviceType = conf[section]["type"]
-        model = conf[section]["model"]
+def checkChannelExists(deviceID, deviceChannel, measurementType, shortName, longName, unit):
+    """Check if a measurement channel already exists in the database
 
-        if(model == "VACOM COLDION CU-100"):
+    :param deviceID: ID of the device the channel belongs to
+    :param deviceChannel: Channel measurement of the device
+    :param measurementType: Which kind of measurement is taken
+    :param shortName: Short description of the channel
+    :param longName: Full description of the channel
+    :param unit: Unit of the measurement
+    :return: -1 if the channel is not found in the database, the channelID of the first matching channel otherwise
+    """
+    c.execute("SELECT * FROM Channels WHERE DeviceID = ? AND DeviceChannel = ? AND Type = ? AND ShortName = ? AND LongName = ? AND Unit = ?", (deviceID, deviceChannel, measurementType, shortName, longName, unit))
+    res = c.fetchall()
+    if(len(res)) > 0:
+        return res[0][0]
+    else:
+        return -1
+
+def addChannel(deviceID, deviceChannel, measurementType, shortName, longName, unit):
+    """Add a new measurement channel to the database
+    :param deviceID: ID of the device the channel belongs to
+    :param deviceChannel: Channel measurement of the device
+    :param measurementType: Which kind of measurement is taken
+    :param shortName: Short description of the channel
+    :param longName: Full description of the channel
+    :param unit: Unit of the measurement
+    """
+    c.execute("INSERT INTO Channels (DeviceID, DeviceChannel, Type, ShortName, LongName, Unit)",(deviceID, deviceChannel, measurementType, shortName, longName, unit))
+    conn.commit()
+
+def initDevices():
+    
+    with open(deviceConfigPath) as deviceConfig:
+        devices = json.load(deviceConfig)
+
+    for device in devices:
+        if(device["Model"] == "Pfeiffer Vacuum TPG 261"):
             try:
-                deviceObject = vacom.CU100(port=address)
+                device["Object"] = pfeiffer.TPG261(device["Address"])
             except SerialException as err:
                 print("Could not open serial device: {}".format(err))
+                devices.remove(device)
                 continue
-        elif(model == "Pfeiffer Vacuum TPG 261"):
+        if(device["Model"] == "VACOM COLDION CU-100"):
             try:
-                deviceObject = vacom.CU100(port=address)
+                device["Object"] = vacom.CU100(device["Address"])
             except SerialException as err:
                 print("Could not open serial device: {}".format(err))
+                devices.remove(device)
                 continue
 
-        deviceID = checkDeviceExists(name, address, deviceType, model)
+        deviceID = checkDeviceExists(device["Name"], device["Address"], device["Type"], device["Model"])
         if(deviceID == -1):
-            deviceID = addDevice(name, address, deviceType, model)
+            deviceID = addDevice(device["Name"], device["Address"], device["Type"], device["Model"])
 
-        devices.append({"object":deviceObject, "ID":deviceID})
+        device["ID"] = deviceID
+        for channel in device["Channels"]:
+            channelID = checkChannelExists(device["ID"], channel["DeviceChannel"], channel["Type"], channel["ShortName"], channel["LongName"], channel["Unit"])
+            if(channelID == -1):
+                channelID = addChannel(device["ID"], channel["DeviceChannel"], channel["Type"], channel["ShortName"], channel["LongName"], channel["Unit"])
+            channel["ID"] = channelID
 
 if __name__ == "__main__":
-    readConfig()
+    devices = {}
+    initDevices()
     while(True):
         for device in devices:
-            value = device["object"].pressure_gauge()[0]
-            timestamp = datetime.datetime.now().isoformat()
-            writeValue(device["ID"], 1, timestamp, value, "TEMP", "Test", "Test", "mBar")
+            for channel in device["Channels"]:
+                value = device["Object"].getValue(channel["DeviceChannel"])
+                timestamp = datetime.datetime.now().isoformat()
+                print("{}\t{}".format(timestamp, value))
+                writeValue(device["ID"], channel["ID"], time, value)
 
         time.sleep(updateInterval)
