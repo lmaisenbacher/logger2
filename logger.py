@@ -92,19 +92,18 @@ def initDevices():
         devices = json.load(deviceConfig)
 
     for device in devices:
+        print("Trying to open device {}".format(device["Name"]))
         if(device["Model"] == "Pfeiffer Vacuum TPG 261"):
             try:
                 device["Object"] = pfeiffer.TPG261(device["Address"])
             except SerialException as err:
                 print("Could not open serial device: {}".format(err))
-                devices.remove(device)
                 continue
         if(device["Model"] == "VACOM COLDION CU-100"):
             try:
                 device["Object"] = vacom.CU100(device["Address"])
             except SerialException as err:
                 print("Could not open serial device: {}".format(err))
-                devices.remove(device)
                 continue
 
         deviceID = checkDeviceExists(device["Name"], device["Address"], device["Type"], device["Model"])
