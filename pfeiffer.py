@@ -217,6 +217,13 @@ class TPG26x(object):
         return test_string_out == 'a1'
 
 
+    def getValue(self, channel):
+        """Perform a pressure measurement of the specified channel and return the value
+
+        :param channel: The measurement channel (1 or 2)
+        :return: The measured value in mBar
+        """
+        return self.pressure_gauge(channel+1)[0]
 
 class TPG262(TPG26x):
     """Driver for the TPG 262 dual channel measurement and control unit"""
@@ -237,7 +244,7 @@ class TPG262(TPG26x):
 
 
 class TPG261(TPG26x):
-    """Driver for the TPG 261 dual channel measurement and control unit"""
+    """Driver for the TPG 261 single channel measurement and control unit"""
 
 
     def __init__(self, port='/dev/ttyUSB0', baudrate=9600):
