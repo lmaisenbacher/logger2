@@ -86,11 +86,8 @@ def addChannel(deviceID, deviceChannel, measurementType, shortName, longName, un
     c.execute("INSERT INTO Channels (DeviceID, DeviceChannel, Type, ShortName, LongName, Unit) VALUES (?,?,?,?,?,?)",(deviceID, deviceChannel, measurementType, shortName, longName, unit))
     conn.commit()
 
-def initDevices():
-    
-    with open(deviceConfigPath) as deviceConfig:
-        devices = json.load(deviceConfig)
-
+def initDevices(devices):  
+  
     for device in devices:
         print("Trying to open device {}".format(device["Name"]))
         if(device["Model"] == "Pfeiffer Vacuum TPG 261"):
@@ -108,18 +105,21 @@ def initDevices():
 
         deviceID = checkDeviceExists(device["Name"], device["Address"], device["Type"], device["Model"])
         if(deviceID == -1):
-            deviceID = addDevice(device["Name"], device["Address"], device["Type"], device["Model"])
+            addDevice(device["Name"], device["Address"], device["Type"], device["Model"])
+            deviceID = checkDeviceExists(device["Name"], device["Address"], device["Type"], device["Model"])
 
         device["ID"] = deviceID
         for channel in device["Channels"]:
-            channelID = checkChannelExists(device["ID"], channel["DeviceChannel"], channel["Type"], channel["ShortName"], channel["LongName"], channel["Unit"])
+            channelID = checkChannelExists(deviceID, channel["DeviceChannel"], channel["Type"], channel["ShortName"], channel["LongName"], channel["Unit"])
             if(channelID == -1):
-                channelID = addChannel(device["ID"], channel["DeviceChannel"], channel["Type"], channel["ShortName"], channel["LongName"], channel["Unit"])
+                addChannel(deviceID, channel["DeviceChannel"], channel["Type"], channel["ShortName"], channel["LongName"], channel["Unit"])
+                channelID = checkChannelExists(deviceID, channel["DeviceChannel"], channel["Type"], channel["ShortName"], channel["LongName"], channel["Unit"])
             channel["ID"] = channelID
 
 if __name__ == "__main__":
-    devices = {}
-    initDevices()
+    with open(deviceConfigPath) as deviceConfig:
+        devices = json.load(deviceConfig)
+    initDevices(devices)
     while(True):
         for device in devices:
             print(device["Name"])
@@ -128,6 +128,6 @@ if __name__ == "__main__":
                 value = device["Object"].getValue(channel["DeviceChannel"])
                 timestamp = datetime.datetime.now()
                 print("{}\t{}".format(timestamp, value))
-                writeValue(device["ID"], channel["ID"], time, value)
+                writeValue(device["ID"], channel["ID"], timestamp, value)
 
         time.sleep(updateInterval)
