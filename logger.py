@@ -15,7 +15,7 @@ updateInterval = int(conf["Update"]["interval"])
 
 deviceConfigPath = conf["Devices"]["configpath"]
 
-conn = sqlite3.connect(dbpath)
+conn = sqlite3.connect(dbpath, detect_types=sqlite3.PARSE_DECLTYPES)
 c = conn.cursor()
 
 def writeValue(deviceID, channelID, time, value):
@@ -23,7 +23,7 @@ def writeValue(deviceID, channelID, time, value):
 
     :param deviceID: ID of the measurement device
     :param channelID: ID of the measurement channel
-    :param time: Timestamp in ISO format
+    :param time: Timestamp as datetime object
     :param value: Measured value
     """
     c.execute("INSERT INTO Measurements (DeviceID, ChannelID, Time, Value) VALUES (?,?,?,?)", (deviceID, channelID, time, value))
@@ -126,7 +126,7 @@ if __name__ == "__main__":
             for channel in device["Channels"]:
                 print(channel["ShortName"])
                 value = device["Object"].getValue(channel["DeviceChannel"])
-                timestamp = datetime.datetime.now().isoformat()
+                timestamp = datetime.datetime.now()
                 print("{}\t{}".format(timestamp, value))
                 writeValue(device["ID"], channel["ID"], time, value)
 
