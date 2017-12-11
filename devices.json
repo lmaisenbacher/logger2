@@ -54,5 +54,19 @@
                 "Unit":"mBar"
             }
         ]
+    },
+    {   "Name":"Pressure gauge roughing line",
+        "Address":"COM10",
+        "Type":"Pressure Gauge",
+        "Model":"Pfeiffer Vacuum TPG 261",
+        "Channels":
+        [
+            {   "DeviceChannel":1,
+                "Type":"PRESSURE",
+                "ShortName":"p (Roughing line)",
+                "LongName":"Pressure (Roughing line)",
+                "Unit":"mBar"
+            }
+        ]
     }
 ]
