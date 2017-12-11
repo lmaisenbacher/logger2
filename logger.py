@@ -102,6 +102,12 @@ def initDevices(devices):
             except SerialException as err:
                 print("Could not open serial device: {}".format(err))
                 continue
+        if(device["Model"] == "Keithley 2001 Multimeter"):
+            device["Object"] = keithley.Multimeter(device["Address"])
+            # Set up device parameters
+            device["Object"].setNrMeasurements(device["NAverages"])
+            device["Object"].setAveragingState(device["Averaging"])
+            device["Object"].setNrPLCycles(device["NPLC"])
 
         deviceID = checkDeviceExists(device["Name"], device["Address"], device["Type"], device["Model"])
         if(deviceID == -1):
@@ -126,6 +132,8 @@ if __name__ == "__main__":
             for channel in device["Channels"]:
                 print(channel["ShortName"])
                 value = device["Object"].getValue(channel["DeviceChannel"])
+                if("Multiplier" in channel):
+                    value *= channel["Multiplier"]
                 timestamp = datetime.datetime.now()
                 print("{}\t{}".format(timestamp, value))
                 writeValue(device["ID"], channel["ID"], timestamp, value)

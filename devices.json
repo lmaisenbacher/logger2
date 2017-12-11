@@ -1,71 +1,40 @@
 [
-    {   "Name":"Pressure gauge chamber 1",
-        "Address":"COM7",
-        "Type":"Pressure Gauge",
-        "Model":"Pfeiffer Vacuum TPG 261",
+    {   "Name":"Cavity temperature logging multimeter",
+        "Address":"test",
+        "Type":"Multimeter",
+        "Model":"Keithley 2001 Multimeter",
+        "Averaging":false,
+        "NPLC":10.00,
+        "NAverages":10,
         "Channels":
         [
             {   "DeviceChannel":1,
-                "Type":"PRESSURE",
-                "ShortName":"p (Chamber 1)",
-                "LongName":"Pressure (Chamber 1)",
-                "Unit":"mBar"
-            }
-        ]
-    },
-    {   "Name":"Pressure gauge chamber 2",
-        "Address":"COM11",
-        "Type":"Pressure Gauge",
-        "Model":"Pfeiffer Vacuum TPG 261",
-        "Channels":
-        [
-            {   "DeviceChannel":1,
-                "Type":"PRESSURE",
-                "ShortName":"p (Chamber 2)",
-                "LongName":"Pressure (Chamber 2)",
-                "Unit":"mBar"
-            }
-        ]
-    },
-    {   "Name":"Pressure gauge chamber 3",
-        "Address":"COM5",
-        "Type":"Pressure Gauge",
-        "Model":"VACOM COLDION CU-100",
-        "Channels":
-        [
-            {   "DeviceChannel":1,
-                "Type":"PRESSURE",
-                "ShortName":"p (Chamber 3)",
-                "LongName":"Pressure (Chamber 3)",
-                "Unit":"mBar"
-            }
-        ]
-    },
-    {   "Name":"Pressure gauge chamber 4",
-        "Address":"COM8",
-        "Type":"Pressure Gauge",
-        "Model":"Pfeiffer Vacuum TPG 261",
-        "Channels":
-        [
-            {   "DeviceChannel":1,
-                "Type":"PRESSURE",
-                "ShortName":"p (Chamber 4)",
-                "LongName":"Pressure (Chamber 4)",
-                "Unit":"mBar"
-            }
-        ]
-    },
-    {   "Name":"Pressure gauge roughing line",
-        "Address":"COM10",
-        "Type":"Pressure Gauge",
-        "Model":"Pfeiffer Vacuum TPG 261",
-        "Channels":
-        [
-            {   "DeviceChannel":1,
-                "Type":"PRESSURE",
-                "ShortName":"p (Roughing line)",
-                "LongName":"Pressure (Roughing line)",
-                "Unit":"mBar"
+                "Type":"TEMPERATURE",
+                "ShortName":"T1 (bottom left)",
+                "LongName":"Temperature 1 (bottom left)",
+                "Unit":"degC",
+                "Multiplier":100
+            },
+            {   "DeviceChannel":2,
+                "Type":"TEMPERATURE",
+                "ShortName":"T2 (EOM)",
+                "LongName":"Temperature 2 (EOM)",
+                "Unit":"degC",
+                "Multiplier":100
+            },
+            {   "DeviceChannel":3,
+                "Type":"TEMPERATURE",
+                "ShortName":"T3 (bottom right)",
+                "LongName":"Temperature 3 (bottom right)",
+                "Unit":"degC",
+                "Multiplier":100
+            },
+            {   "DeviceChannel":4,
+                "Type":"TEMPERATURE",
+                "ShortName":"T4 (top)",
+                "LongName":"Temperature 4 (toop)",
+                "Unit":"degC",
+                "Multiplier":100
             }
         ]
     }

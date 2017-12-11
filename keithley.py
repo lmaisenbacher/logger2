@@ -6,6 +6,15 @@
 import visa
 
 class Multimeter(object):
+
+    def getValue(self, channel):
+        """Set the switcher to the specified channel and take a measurement
+
+        :param channel: The channel (1-10) to use
+        :return: The measured voltage in V
+        """
+        self.setChannel(channel)
+        return self.measureVoltage()
     
     def setChannel(self, channel):
         """Sets the measurement channel using the built-in switcher.
