@@ -1,6 +1,6 @@
 import sqlite3
 import configparser, json
-import pfeiffer, vacom
+import pfeiffer, vacom, keithley
 import time
 from serial import SerialException
 import datetime

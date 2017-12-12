@@ -14,7 +14,7 @@ class Multimeter(object):
         :return: The measured voltage in V
         """
         self.setChannel(channel)
-        return self.measureVoltage()
+        return self.measureVoltage()[0]
     
     def setChannel(self, channel):
         """Sets the measurement channel using the built-in switcher.
@@ -75,4 +75,4 @@ class Multimeter(object):
         self.device.write("SYSTEM:PRESET") # Set all settings to default
         self.device.write(":SENSE:VOLTAGE:DC:AVERAGE:TCON REP") # Set the averaging mode to repeat
         self.device.write(":INITIATE:CONTINUOUS OFF") # Disable continuous acquisition
-        self.devide.timeout = 60000 # Set timeout to 60 s for long acquisitions
+        self.device.timeout = 60000 # Set timeout to 60 s for long acquisitions
