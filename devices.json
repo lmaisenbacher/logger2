@@ -1,6 +1,6 @@
 [
     {   "Name":"Cavity temperature logging multimeter",
-        "Address":"test",
+        "Address":"GPIB0::1::INSTR",
         "Type":"Multimeter",
         "Model":"Keithley 2001 Multimeter",
         "Averaging":false,
