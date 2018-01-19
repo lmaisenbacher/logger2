@@ -104,6 +104,12 @@ def initDevices(devices):
             except SerialException as err:
                 print("Could not open serial device: {}".format(err))
                 continue
+        if device["Model"] == "Pfeiffer Vacuum TPG 262":
+            try:
+                device["Object"] = pfeiffer.TPG262(device["Address"])
+            except SerialException as err:
+                print("Could not open serial device: {}".format(err))
+                continue
         if device["Model"] == "VACOM COLDION CU-100":
             try:
                 device["Object"] = vacom.CU100(device["Address"])
