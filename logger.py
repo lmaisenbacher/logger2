@@ -143,13 +143,27 @@ if __name__ == "__main__":
     while True:
         for device in devices:
             print(device["Name"])
-            for channel in device["Channels"]:
-                print(channel["ShortName"])
-                value = device["Object"].getValue(channel["DeviceChannel"])
-                if "Multiplier" in channel:
-                    value *= channel["Multiplier"]
+            if device["ParallelReadout"]:
+                readings = device["Object"].get_values()
                 timestamp = datetime.datetime.now()
-                print("{}\t{}".format(timestamp, value))
-                writeValue(device["ID"], channel["ID"], timestamp, value)
+                for channel, reading in readings:
+                    # This searches for a channel with matching DeviceChannel in the device
+                    # config.
+                    channel_information_dict = next((x for x in device["Channels"]
+                        if x["DeviceChannel"] == channel), None)
+                    if channel_information_dict is None:
+                        print("Channel {} of device {} not configured.".format(
+                            channel, device["Name"]))
+                    else:
+                        writeValue(device["ID"], channel_information_dict["ID"], timestamp, reading)
+            else:
+                for channel in device["Channels"]:
+                    print(channel["ShortName"])
+                    value = device["Object"].getValue(channel["DeviceChannel"])
+                    if "Multiplier" in channel:
+                        value *= channel["Multiplier"]
+                    timestamp = datetime.datetime.now()
+                    print("{}\t{}".format(timestamp, value))
+                    writeValue(device["ID"], channel["ID"], timestamp, value)
 
         time.sleep(updateInterval)

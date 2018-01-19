@@ -6,6 +6,7 @@
         "Averaging":false,
         "NPLC":10.00,
         "NAverages":10,
+        "ParallelReadout":false,
         "Channels":
         [
             {   "DeviceChannel":1,
@@ -42,6 +43,7 @@
         "Address":"COM7",
         "Type":"Pressure Gauge",
         "Model":"Pfeiffer Vacuum TPG 261",
+        "ParallelReadout":false,
         "Channels":
         [
             {   "DeviceChannel":1,
@@ -56,6 +58,7 @@
         "Address":"COM11",
         "Type":"Pressure Gauge",
         "Model":"Pfeiffer Vacuum TPG 262",
+        "ParallelReadout":false,
         "Channels":
         [
             {   "DeviceChannel":1,
@@ -76,6 +79,7 @@
         "Address":"COM5",
         "Type":"Pressure Gauge",
         "Model":"VACOM COLDION CU-100",
+        "ParallelReadout":false,
         "Channels":
         [
             {   "DeviceChannel":1,
@@ -90,6 +94,7 @@
         "Address":"COM8",
         "Type":"Pressure Gauge",
         "Model":"Pfeiffer Vacuum TPG 261",
+        "ParallelReadout":false,
         "Channels":
         [
             {   "DeviceChannel":1,
