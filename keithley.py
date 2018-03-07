@@ -3,7 +3,10 @@
 """This module contains drivers for the Keithley 2001 multimeter connected via VISA/GPIB.
 """
 
+import time
 import visa
+
+SWITCHTIME = 10E-3 # Time (in s) to sleep between switching channel and taking measurement
 
 class Multimeter(object):
 
@@ -14,6 +17,7 @@ class Multimeter(object):
         :return: The measured voltage in V
         """
         self.setChannel(channel)
+        time.sleep(SWITCHTIME)
         return self.measureVoltage()[0]
     
     def setChannel(self, channel):
