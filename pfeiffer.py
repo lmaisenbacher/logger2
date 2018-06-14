@@ -31,8 +31,6 @@ GAUGE_IDS = {
 }
 PRESSURE_UNITS = {0: 'mbar/bar', 1: 'Torr', 2: 'Pascal'}
 
-
-
 class TPG26x(object):
     r"""Abstract class that implements the common driver for the TPG 261 and
     TPG 262 dual channel measurement and control unit. The driver implements
@@ -127,7 +125,6 @@ class TPG26x(object):
             out += just_read
         return out
 
-
     def program_number(self):
         """Return the firmware version
 
@@ -136,7 +133,6 @@ class TPG26x(object):
         """
         self._send_command('PNR')
         return self._get_data()
-
 
     def pressure_gauge(self, gauge=1):
         """Return the pressure measured by gauge X
@@ -156,7 +152,6 @@ class TPG26x(object):
         value = float(reply.split(',')[1])
         return value, (status_code, MEASUREMENT_STATUS[status_code])
 
-
     def pressure_gauges(self):
         """Return the pressures measured by the gauges
 
@@ -174,7 +169,6 @@ class TPG26x(object):
         return (value1, (status_code1, MEASUREMENT_STATUS[status_code1]),
                 value2, (status_code2, MEASUREMENT_STATUS[status_code2]))
 
-
     def gauge_identification(self):
         """Return the gauge identication
 
@@ -186,7 +180,6 @@ class TPG26x(object):
         id1, id2 = reply.split(',')
         return id1, GAUGE_IDS[id1], id2, GAUGE_IDS[id2]
 
-
     def pressure_unit(self):
         """Return the pressure unit
 
@@ -196,7 +189,6 @@ class TPG26x(object):
         self._send_command('UNI')
         unit_code = int(self._get_data())
         return PRESSURE_UNITS[unit_code]
-
 
     def rs232_communication_test(self):
         """RS232 communication test
@@ -214,7 +206,6 @@ class TPG26x(object):
         self._send_command(self.ETX)
         return test_string_out == 'a1'
 
-
     def get_value(self, channel):
         """Perform a pressure measurement of the specified channel and return the value
 
@@ -226,7 +217,6 @@ class TPG26x(object):
 class TPG262(TPG26x):
     """Driver for the TPG 262 dual channel measurement and control unit"""
 
-
     def __init__(self, port='/dev/ttyUSB0', baudrate=9600):
         """Initialize internal variables and serial connection
 
@@ -237,14 +227,11 @@ class TPG262(TPG26x):
         :param baudrate: 9600, 19200, 38400 where 9600 is the default
         :type baudrate: int
         """
-        super(TPG262, self).__init__(port=port, baudrate=baudrate)
-
-
+        super().__init__(port=port, baudrate=baudrate)
 
 class TPG261(TPG26x):
     """Driver for the TPG 261 single channel measurement and control unit"""
 
-
     def __init__(self, port='/dev/ttyUSB0', baudrate=9600):
         """Initialize internal variables and serial connection
 
@@ -255,4 +242,4 @@ class TPG261(TPG26x):
         :param baudrate: 9600, 19200, 38400 where 9600 is the default
         :type baudrate: int
         """
-        super(TPG261, self).__init__(port=port, baudrate=baudrate)
+        super().__init__(port=port, baudrate=baudrate)
