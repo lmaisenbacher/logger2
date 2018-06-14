@@ -159,7 +159,11 @@ if __name__ == "__main__":
             else:
                 for channel in device["Channels"]:
                     print(channel["ShortName"])
-                    value = device["Object"].getValue(channel["DeviceChannel"])
+                    try:
+                        value = device["Object"].getValue(channel["DeviceChannel"])
+                    except (ValueError, IOError) as err:
+                        print("Could not get measurement value. Error: {}".format(err))
+                        continue
                     if "Multiplier" in channel:
                         value *= channel["Multiplier"]
                     timestamp = datetime.datetime.now()
