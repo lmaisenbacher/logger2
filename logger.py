@@ -3,12 +3,15 @@ import configparser
 import json
 import datetime
 import time
+import logging
 
 from serial import SerialException
 
 import pfeiffer
 import vacom
 import keithley
+
+LOG = logging.getLogger(__name__)
 
 CONFIGPATH = "config.ini"
 
@@ -97,24 +100,24 @@ def initDevices(devices):
     :param devices: List of the devices to initialize
     """
     for device in devices:
-        print("Trying to open device {}".format(device["Name"]))
+        LOG.info("Trying to open device %s", device["Name"])
         if device["Model"] == "Pfeiffer Vacuum TPG 261":
             try:
                 device["Object"] = pfeiffer.TPG261(device["Address"])
             except SerialException as err:
-                print("Could not open serial device: {}".format(err))
+                LOG.error("Could not open serial device: %s", err)
                 continue
         if device["Model"] == "Pfeiffer Vacuum TPG 262":
             try:
                 device["Object"] = pfeiffer.TPG262(device["Address"])
             except SerialException as err:
-                print("Could not open serial device: {}".format(err))
+                LOG.error("Could not open serial device: %s", err)
                 continue
         if device["Model"] == "VACOM COLDION CU-100":
             try:
                 device["Object"] = vacom.CU100(device["Address"])
             except SerialException as err:
-                print("Could not open serial device: {}".format(err))
+                LOG.error("Could not open serial device: %s", err)
                 continue
         if device["Model"] == "Keithley 2001 Multimeter":
             device["Object"] = keithley.Multimeter(device["Address"])
@@ -142,7 +145,7 @@ if __name__ == "__main__":
     initDevices(devices)
     while True:
         for device in devices:
-            print(device["Name"])
+            LOG.info("%s", device["Name"])
             if device["ParallelReadout"]:
                 readings = device["Object"].get_values()
                 timestamp = datetime.datetime.now()
@@ -152,22 +155,22 @@ if __name__ == "__main__":
                     channel_information_dict = next((x for x in device["Channels"]
                         if x["DeviceChannel"] == channel), None)
                     if channel_information_dict is None:
-                        print("Channel {} of device {} not configured.".format(
-                            channel, device["Name"]))
+                        LOG.warning("Channel %s of device %s not configured.", channel,
+                                    device["Name"])
                     else:
                         writeValue(device["ID"], channel_information_dict["ID"], timestamp, reading)
             else:
                 for channel in device["Channels"]:
-                    print(channel["ShortName"])
+                    LOG.info("%s", channel["ShortName"])
                     try:
                         value = device["Object"].getValue(channel["DeviceChannel"])
                     except (ValueError, IOError) as err:
-                        print("Could not get measurement value. Error: {}".format(err))
+                        LOG.error("Could not get measurement value. Error: %s", err)
                         continue
                     if "Multiplier" in channel:
                         value *= channel["Multiplier"]
                     timestamp = datetime.datetime.now()
-                    print("{}\t{}".format(timestamp, value))
+                    LOG.info("%s\t%f", timestamp, value)
                     writeValue(device["ID"], channel["ID"], timestamp, value)
 
         time.sleep(updateInterval)
