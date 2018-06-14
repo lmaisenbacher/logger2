@@ -1,3 +1,4 @@
+"""Multi-purpose data logging software."""
 import sqlite3
 import configparser
 import json
@@ -15,87 +16,96 @@ LOG = logging.getLogger()
 
 CONFIGPATH = "config.ini"
 
-conf = configparser.ConfigParser()
-conf.read(CONFIGPATH)
+CONF = configparser.ConfigParser()
+CONF.read(CONFIGPATH)
 
-dbpath = conf["Database"]["path"]
-updateInterval = int(conf["Update"]["interval"])
+DBPATH = CONF["Database"]["path"]
+UPDATE_INTERVAL = int(CONF["Update"]["interval"])
 
-deviceConfigPath = conf["Devices"]["configpath"]
+DEVICE_CONFIG_PATH = CONF["Devices"]["configpath"]
 
-conn = sqlite3.connect(dbpath, detect_types=sqlite3.PARSE_DECLTYPES)
-c = conn.cursor()
+CONN = sqlite3.connect(DBPATH, detect_types=sqlite3.PARSE_DECLTYPES)
+CURSOR = CONN.cursor()
 
-def writeValue(deviceID, channelID, timestamp, value):
+def write_value(device_id, channel_id, timestamp, value):
     """Write a new measured value to the database
 
-    :param deviceID: ID of the measurement device
-    :param channelID: ID of the measurement channel
+    :param device_id: ID of the measurement device
+    :param channel_id: ID of the measurement channel
     :param timestamp: Timestamp as datetime object
     :param value: Measured value
     """
-    c.execute("INSERT INTO Measurements (DeviceID, ChannelID, Time, Value) VALUES (?,?,?,?)", (deviceID, channelID, timestamp, value))
-    conn.commit()
+    CURSOR.execute("INSERT INTO Measurements (DeviceID, ChannelID, Time, Value) VALUES (?,?,?,?)",
+                   (device_id, channel_id, timestamp, value))
+    CONN.commit()
 
-def checkDeviceExists(name, address, deviceType, model):
+def check_device_exists(name, address, device_type, model):
     """Check if a device with specified name, address and type already exists in the database.
 
     :param name: Device name
     :param address: Device address
-    :param deviceType: Device type
+    :param device_type: Device type
     :param model: Device model
-    :returns: -1 if the device is not found in the database, the deviceID of the first matching device otherwhise
+    :returns: -1 if the device is not found in the database, the device_id of the first matching
+                 device otherwhise
     """
-    c.execute("SELECT * FROM Devices WHERE Name = ? AND Address = ? AND Type = ? AND Model = ?", (name, address, deviceType, model))
-    res = c.fetchall()
+    CURSOR.execute(
+        "SELECT * FROM Devices WHERE Name = ? AND Address = ? AND Type = ? AND Model = ?",
+        (name, address, device_type, model))
+    res = CURSOR.fetchall()
     if res:
         return res[0][0]
-    else:
-        return -1
+    return -1
 
-def addDevice(name, address, deviceType, model):
+def add_device(name, address, device_type, model):
     """Add a new device to the database.
 
     :param name: Device name
     :param address: Device address
-    :param deviceType: Device type
+    :param device_type: Device type
     :param model: Device model
     """
-    c.execute("INSERT INTO Devices (Name, Address, Type, Model) VALUES (?,?,?,?)", (name, address, deviceType, model))
-    conn.commit()
+    CURSOR.execute("INSERT INTO Devices (Name, Address, Type, Model) VALUES (?,?,?,?)",
+                   (name, address, device_type, model))
+    CONN.commit()
 
-def checkChannelExists(deviceID, deviceChannel, measurementType, shortName, longName, unit):
-    """Check if a measurement channel already exists in the database
+def check_channel_exists(device_id, device_channel, measurement_type, short_name, long_name, unit):
+    """Check if a measurement channel already exists in the database.
 
-    :param deviceID: ID of the device the channel belongs to
-    :param deviceChannel: Channel measurement of the device
-    :param measurementType: Which kind of measurement is taken
-    :param shortName: Short description of the channel
-    :param longName: Full description of the channel
+    :param device_id: ID of the device the channel belongs to
+    :param device_channel: Channel measurement of the device
+    :param measurement_type: Which kind of measurement is taken
+    :param short_name: Short description of the channel
+    :param long_name: Full description of the channel
     :param unit: Unit of the measurement
-    :return: -1 if the channel is not found in the database, the channelID of the first matching channel otherwise
+    :return: -1 if the channel is not found in the database, the channel_id of the first matching
+             channel otherwise
     """
-    c.execute("SELECT * FROM Channels WHERE DeviceID = ? AND DeviceChannel = ? AND Type = ? AND ShortName = ? AND LongName = ? AND Unit = ?", (deviceID, deviceChannel, measurementType, shortName, longName, unit))
-    res = c.fetchall()
+    CURSOR.execute("SELECT * FROM Channels WHERE DeviceID = ? AND DeviceChannel = ? AND Type = ?"
+                   " AND ShortName = ? AND LongName = ? AND Unit = ?",
+                   (device_id, device_channel, measurement_type, short_name, long_name, unit))
+    res = CURSOR.fetchall()
     if res:
         return res[0][0]
-    else:
-        return -1
+    return -1
 
-def addChannel(deviceID, deviceChannel, measurementType, shortName, longName, unit):
-    """Add a new measurement channel to the database
-    :param deviceID: ID of the device the channel belongs to
-    :param deviceChannel: Channel measurement of the device
-    :param measurementType: Which kind of measurement is taken
-    :param shortName: Short description of the channel
-    :param longName: Full description of the channel
+def add_channel(device_id, device_channel, measurement_type, short_name, long_name, unit):
+    """Add a new measurement channel to the database.
+
+    :param device_id: ID of the device the channel belongs to
+    :param device_channel: Channel measurement of the device
+    :param measurement_type: Which kind of measurement is taken
+    :param short_name: Short description of the channel
+    :param long_name: Full description of the channel
     :param unit: Unit of the measurement
     """
-    c.execute("INSERT INTO Channels (DeviceID, DeviceChannel, Type, ShortName, LongName, Unit) VALUES (?,?,?,?,?,?)", (deviceID, deviceChannel, measurementType, shortName, longName, unit))
-    conn.commit()
+    CURSOR.execute("INSERT INTO Channels (DeviceID, DeviceChannel, Type, ShortName, LongName, Unit)"
+                   " VALUES (?,?,?,?,?,?)",
+                   (device_id, device_channel, measurement_type, short_name, long_name, unit))
+    CONN.commit()
 
-def initDevices(devices):
-    """Initialize the device objects
+def init_devices(devices):
+    """Initialize the device objects.
 
     :param devices: List of the devices to initialize
     """
@@ -126,18 +136,25 @@ def initDevices(devices):
             device["Object"].setAveragingState(device["Averaging"])
             device["Object"].setNrPLCycles(device["NPLC"])
 
-        deviceID = checkDeviceExists(device["Name"], device["Address"], device["Type"], device["Model"])
-        if deviceID == -1:
-            addDevice(device["Name"], device["Address"], device["Type"], device["Model"])
-            deviceID = checkDeviceExists(device["Name"], device["Address"], device["Type"], device["Model"])
+        device_id = check_device_exists(device["Name"], device["Address"], device["Type"],
+                                        device["Model"])
+        if device_id == -1:
+            add_device(device["Name"], device["Address"], device["Type"], device["Model"])
+            device_id = check_device_exists(device["Name"], device["Address"], device["Type"],
+                                            device["Model"])
 
-        device["ID"] = deviceID
+        device["ID"] = device_id
         for channel in device["Channels"]:
-            channelID = checkChannelExists(deviceID, channel["DeviceChannel"], channel["Type"], channel["ShortName"], channel["LongName"], channel["Unit"])
-            if channelID == -1:
-                addChannel(deviceID, channel["DeviceChannel"], channel["Type"], channel["ShortName"], channel["LongName"], channel["Unit"])
-                channelID = checkChannelExists(deviceID, channel["DeviceChannel"], channel["Type"], channel["ShortName"], channel["LongName"], channel["Unit"])
-            channel["ID"] = channelID
+            channel_id = check_channel_exists(
+                device_id, channel["DeviceChannel"], channel["Type"], channel["ShortName"],
+                channel["LongName"], channel["Unit"])
+            if channel_id == -1:
+                add_channel(device_id, channel["DeviceChannel"], channel["Type"],
+                            channel["ShortName"], channel["LongName"], channel["Unit"])
+                channel_id = check_channel_exists(device_id, channel["DeviceChannel"],
+                                                  channel["Type"], channel["ShortName"],
+                                                  channel["LongName"], channel["Unit"])
+            channel["ID"] = channel_id
 
 def _setup_logging():
     """Configure the application logging setup."""
@@ -145,37 +162,41 @@ def _setup_logging():
 
 if __name__ == "__main__":
     _setup_logging()
-    with open(deviceConfigPath) as deviceConfig:
-        devices = json.load(deviceConfig)
-    initDevices(devices)
+    with open(DEVICE_CONFIG_PATH) as device_config:
+        DEVICES = json.load(device_config)
+    init_devices(DEVICES)
     while True:
-        for device in devices:
-            LOG.info("%s", device["Name"])
-            if device["ParallelReadout"]:
-                readings = device["Object"].get_values()
-                timestamp = datetime.datetime.now()
-                for channel, reading in readings:
+        for current_device in DEVICES:
+            LOG.info("%s", current_device["Name"])
+            if current_device["ParallelReadout"]:
+                readings = current_device["Object"].get_values()
+                current_timestamp = datetime.datetime.now()
+                for current_channel, reading in readings:
                     # This searches for a channel with matching DeviceChannel in the device
                     # config.
-                    channel_information_dict = next((x for x in device["Channels"]
-                        if x["DeviceChannel"] == channel), None)
+                    channel_information_dict = next((x for x in current_device["Channels"]
+                                                     if x["DeviceChannel"] == current_channel),
+                                                    None)
                     if channel_information_dict is None:
-                        LOG.warning("Channel %s of device %s not configured.", channel,
-                                    device["Name"])
+                        LOG.warning("Channel %s of device %s not configured.", current_channel,
+                                    current_device["Name"])
                     else:
-                        writeValue(device["ID"], channel_information_dict["ID"], timestamp, reading)
+                        write_value(current_device["ID"], channel_information_dict["ID"],
+                                    current_timestamp, reading)
             else:
-                for channel in device["Channels"]:
-                    LOG.info("%s", channel["ShortName"])
+                for current_channel in current_device["Channels"]:
+                    LOG.info("%s", current_channel["ShortName"])
                     try:
-                        value = device["Object"].get_value(channel["DeviceChannel"])
+                        measured_value = current_device["Object"].get_value(
+                            current_channel["DeviceChannel"])
                     except (ValueError, IOError) as err:
                         LOG.error("Could not get measurement value. Error: %s", err)
                         continue
-                    if "Multiplier" in channel:
-                        value *= channel["Multiplier"]
-                    timestamp = datetime.datetime.now()
-                    LOG.info("%s\t%s", timestamp, value)
-                    writeValue(device["ID"], channel["ID"], timestamp, value)
+                    if "Multiplier" in current_channel:
+                        measured_value *= current_channel["Multiplier"]
+                    current_timestamp = datetime.datetime.now()
+                    LOG.info("%s\t%s", current_timestamp, measured_value)
+                    write_value(current_device["ID"], current_channel["ID"], current_timestamp,
+                                measured_value)
 
-        time.sleep(updateInterval)
+        time.sleep(UPDATE_INTERVAL)
