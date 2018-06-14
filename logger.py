@@ -11,7 +11,7 @@ import pfeiffer
 import vacom
 import keithley
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger()
 
 CONFIGPATH = "config.ini"
 
@@ -139,7 +139,12 @@ def initDevices(devices):
                 channelID = checkChannelExists(deviceID, channel["DeviceChannel"], channel["Type"], channel["ShortName"], channel["LongName"], channel["Unit"])
             channel["ID"] = channelID
 
+def _setup_logging():
+    """Configure the application logging setup."""
+    logging.basicConfig(level=logging.INFO)
+
 if __name__ == "__main__":
+    _setup_logging()
     with open(deviceConfigPath) as deviceConfig:
         devices = json.load(deviceConfig)
     initDevices(devices)
