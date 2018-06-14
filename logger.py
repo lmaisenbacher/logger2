@@ -175,7 +175,7 @@ if __name__ == "__main__":
                     if "Multiplier" in channel:
                         value *= channel["Multiplier"]
                     timestamp = datetime.datetime.now()
-                    LOG.info("%s\t%f", timestamp, value)
+                    LOG.info("%s\t%s", timestamp, value)
                     writeValue(device["ID"], channel["ID"], timestamp, value)
 
         time.sleep(updateInterval)
