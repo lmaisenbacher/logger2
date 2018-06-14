@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """This module contains drivers for the following equipment from Pfeiffer
 Vacuum:
 
@@ -217,7 +215,7 @@ class TPG26x(object):
         return test_string_out == 'a1'
 
 
-    def getValue(self, channel):
+    def get_value(self, channel):
         """Perform a pressure measurement of the specified channel and return the value
 
         :param channel: The measurement channel (1 or 2)
@@ -237,7 +235,7 @@ class TPG262(TPG26x):
             of the possible value. The default value is '/dev/ttyUSB0'.
         :type port: str or int
         :param baudrate: 9600, 19200, 38400 where 9600 is the default
-        :type baudrate: int        
+        :type baudrate: int
         """
         super(TPG262, self).__init__(port=port, baudrate=baudrate)
 

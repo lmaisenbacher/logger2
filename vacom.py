@@ -72,7 +72,7 @@ class CU100(object):
 
         return newCommand
 
-    def getValue(self, channel):
+    def get_value(self, channel):
         """Perform a pressure measurement of the specified channel and return the value
 
         :param channel: Ignored, since there is only one channel

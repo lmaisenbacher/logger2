@@ -10,7 +10,7 @@ SWITCHTIME = 10E-3 # Time (in s) to sleep between switching channel and taking m
 
 class Multimeter(object):
 
-    def getValue(self, channel):
+    def get_value(self, channel):
         """Set the switcher to the specified channel and take a measurement
 
         :param channel: The channel (1-10) to use

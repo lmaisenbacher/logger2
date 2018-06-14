@@ -168,7 +168,7 @@ if __name__ == "__main__":
                 for channel in device["Channels"]:
                     LOG.info("%s", channel["ShortName"])
                     try:
-                        value = device["Object"].getValue(channel["DeviceChannel"])
+                        value = device["Object"].get_value(channel["DeviceChannel"])
                     except (ValueError, IOError) as err:
                         LOG.error("Could not get measurement value. Error: %s", err)
                         continue
