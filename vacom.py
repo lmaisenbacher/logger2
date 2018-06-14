@@ -1,15 +1,13 @@
-# -*- coding: utf-8 -*-
-
 """This module contains drivers for the following equipment from Vacom
 
 COLDION CU-100 cold cathode ionization gauge controller
-
 """
 
 import time
 import serial
 
 class CU100(object):
+    """Driver for the COLDION CU-100 cold cathode ionization gauge controller."""
 
     def __init__(self, port='/dev/ttyUSB0', baudrate=19200):
         """Initialize internal variables and serial connection
@@ -32,7 +30,8 @@ class CU100(object):
 
         :return: (pressure value in mbar, (0, "NONE"))
         """
-        command = [0xA5, 0x50, 0x00, 0x00, 0x20, 0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        command = [0xA5, 0x50, 0x00, 0x00, 0x20, 0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         self.serial.write(self.command_with_checksum(command))
         time.sleep(0.1)
         response = self.serial.read(self.serial.inWaiting())
@@ -40,17 +39,18 @@ class CU100(object):
 
         return value, (0, "NONE")
 
-    def crc16_update(self, crc, a):
+    @staticmethod
+    def crc16_update(crc, new_byte):
         """Cyclical calculation of a CRC-16 checksum.
-        
+
         :param crc: The previous checksum value
-        :param a: The byte to be added to the checksum
+        :param new_byte: The byte to be added to the checksum
         :returns: The new CRC-16 checksum
         """
-        crc = crc^a
+        crc = crc^new_byte
 
-        for i in range(8):
-            if (crc & 1):
+        for _i in range(8):
+            if crc & 1:
                 crc = (crc >> 1)^0xA001
             else:
                 crc = crc >> 1
@@ -66,16 +66,16 @@ class CU100(object):
         for element in command:
             crc = self.crc16_update(crc, element)
 
-        newCommand = list(command)
-        newCommand.append(crc&0xFF)
-        newCommand.append(crc>>8)
+        new_command = list(command)
+        new_command.append(crc&0xFF)
+        new_command.append(crc>>8)
 
-        return newCommand
+        return new_command
 
-    def get_value(self, channel):
+    def get_value(self, _channel):
         """Perform a pressure measurement of the specified channel and return the value
 
-        :param channel: Ignored, since there is only one channel
+        :param _channel: Ignored, since there is only one channel
         :return: The measured value in mBar
         """
         return self.pressure_gauge()[0]
