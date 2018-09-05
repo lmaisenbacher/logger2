@@ -5,10 +5,12 @@ import json
 import datetime
 import time
 import logging
+import socket
 
 from serial import SerialException
 
 import pfeiffer
+import pfeiffer_eth
 import vacom
 import keithley
 
@@ -21,6 +23,7 @@ CONF.read(CONFIGPATH)
 
 DBPATH = CONF["Database"]["path"]
 UPDATE_INTERVAL = int(CONF["Update"]["interval"])
+TIMEOUT = int(CONF["Devices"]["timeout"])
 
 DEVICE_CONFIG_PATH = CONF["Devices"]["configpath"]
 
@@ -111,24 +114,35 @@ def init_devices(devices):
     """
     for device in devices:
         LOG.info("Trying to open device %s", device["Name"])
+
         if device["Model"] == "Pfeiffer Vacuum TPG 261":
             try:
                 device["Object"] = pfeiffer.TPG261(device["Address"])
             except SerialException as err:
                 LOG.error("Could not open serial device: %s", err)
                 continue
+
         if device["Model"] == "Pfeiffer Vacuum TPG 262":
             try:
                 device["Object"] = pfeiffer.TPG262(device["Address"])
             except SerialException as err:
                 LOG.error("Could not open serial device: %s", err)
                 continue
+
         if device["Model"] == "VACOM COLDION CU-100":
             try:
                 device["Object"] = vacom.CU100(device["Address"])
             except SerialException as err:
                 LOG.error("Could not open serial device: %s", err)
                 continue
+
+        if device["Model"] == "Pfeiffer Vacuum TPG 366":
+            try:
+                device["Object"] = pfeiffer_eth.TPG366(device["Address"], timeout=TIMEOUT)
+            except socket.error as err:
+                LOG.error("Could not connect to TCP/IP device: %s", err)
+                continue
+
         if device["Model"] == "Keithley 2001 Multimeter":
             device["Object"] = keithley.Multimeter(device["Address"])
             # Set up device parameters
