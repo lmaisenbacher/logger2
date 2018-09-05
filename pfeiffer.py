@@ -78,12 +78,10 @@ class TPG26x(object):
         self.serial = serial.Serial(port=port, baudrate=baudrate, timeout=1)
 
     def _cr_lf(self, string):
-        """Pad carriage return and line feed to a string
+        """Pad carriage return and line feed to a string and encode to bytes
 
-        :param string: String to pad
-        :type string: str
-        :returns: the padded string
-        :rtype: str
+        :string: string to pad
+        :returns: the padded bytes
         """
         return (string + self.CR + self.LF).encode()
 
