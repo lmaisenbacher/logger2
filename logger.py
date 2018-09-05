@@ -171,7 +171,7 @@ if __name__ == "__main__":
             if current_device["ParallelReadout"]:
                 readings = current_device["Object"].get_values()
                 current_timestamp = datetime.datetime.now()
-                for current_channel, reading in readings:
+                for current_channel, reading in readings.items():
                     # This searches for a channel with matching DeviceChannel in the device
                     # config.
                     channel_information_dict = next((x for x in current_device["Channels"]
