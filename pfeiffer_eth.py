@@ -78,6 +78,7 @@ class TPG366():
                 break
 
         self._socket.sendall(ENQ.encode())
+        self._socket.recv(self.chunksize)
 
     def _send_command(self, command):
         """Send a command and check if it is positively acknowledged
