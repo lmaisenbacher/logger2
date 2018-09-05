@@ -78,7 +78,6 @@ class TPG366():
                 break
 
         self._socket.sendall(ENQ.encode())
-        print(self._socket.recv(self.chunksize))
 
     def _send_command(self, command):
         """Send a command and check if it is positively acknowledged
@@ -153,3 +152,18 @@ class TPG366():
         self._send_command('UNI')
         unit_code = int(self._get_data())
         return PRESSURE_UNITS[unit_code]
+
+    def get_value(self, channel):
+        """Perform a pressure measurement of the specified channel and return the value.
+
+        :param channel: the measurement channel (1 to 6)
+        :return: the measured value in mBar
+        """
+        return self.pressure_gauge(channel)[0]
+
+    def get_values(self):
+        """Perform a pressure measurement of all 6 channels and return the measured values.
+
+        :return: a list of the measured value in mBar
+        """
+        return [element[0] for element in self.pressure_gauges()]
