@@ -167,4 +167,7 @@ class TPG366():
 
         :return: a list of the measured value in mBar
         """
-        return [element[0] for element in self.pressure_gauges()]
+        values_dict = {}
+        for index, element in self.pressure_gauges():
+            values_dict[index+1] = element[0]
+        return values_dict
