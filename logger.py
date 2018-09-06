@@ -195,6 +195,7 @@ if __name__ == "__main__":
                         LOG.warning("Channel %s of device %s not configured.", current_channel,
                                     current_device["Name"])
                     else:
+                        LOG.info("%s", channel_information_dict["ShortName"])
                         LOG.info("%s\t%s", current_timestamp, reading)
                         write_value(current_device["ID"], channel_information_dict["ID"],
                                     current_timestamp, reading)
