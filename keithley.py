@@ -72,7 +72,7 @@ class Multimeter(object):
         """
         self.devicePresent = False
         try:
-            rm = visa.ResourceManager()
+            rm = visa.ResourceManager('@py')
             self.device = rm.open_resource(resourceName)
         except: print("Could not open Keithley 2001 Multimeter (VISA resource {}).".format(resourceName))
         else: self.devicePresent = True
