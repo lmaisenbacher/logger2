@@ -1,107 +1,118 @@
 [
-    {   "Name":"Cavity temperature logging multimeter",
-        "Address":"GPIB0::1::INSTR",
-        "Type":"Multimeter",
+    {
         "Model":"Keithley 2001 Multimeter",
+        "Address":"GPIB0::1::INSTR",
         "Averaging":false,
         "NPLC":10.00,
         "NAverages":10,
         "ParallelReadout":false,
+        "tags":{"device":"Keithley 2001 Multimeter"},
+        "measurement":"temperature",
         "Channels":
         [
-            {   "DeviceChannel":1,
-                "Type":"TEMPERATURE",
-                "ShortName":"T1 (bottom left)",
-                "LongName":"Temperature 1 (bottom left)",
-                "Unit":"degC",
-                "Multiplier":100
+            {   
+                "DeviceChannel":1,
+                "Multiplier":100,
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"T1_bottom_left",
+                    "unit":"degC"
+                }
             },
-            {   "DeviceChannel":2,
-                "Type":"TEMPERATURE",
-                "ShortName":"T2 (EOM)",
-                "LongName":"Temperature 2 (EOM)",
-                "Unit":"degC",
-                "Multiplier":100
+            {   
+                "DeviceChannel":2,
+                "Multiplier":20,
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"T2_EOM",
+                    "unit":"degC"
+                }
             },
             {   "DeviceChannel":3,
-                "Type":"TEMPERATURE",
-                "ShortName":"T3 (bottom right)",
-                "LongName":"Temperature 3 (bottom right)",
-                "Unit":"degC",
-                "Multiplier":100
+                "Multiplier":100,
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"T3_bottom_right",
+                    "unit":"degC"
+                }
             },
             {   "DeviceChannel":4,
-                "Type":"TEMPERATURE",
-                "ShortName":"T4 (top)",
-                "LongName":"Temperature 4 (toop)",
-                "Unit":"degC",
-                "Multiplier":100
+                "Multiplier":100,
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"T4_top",
+                    "unit":"degC"
+                }
             }
         ]
     },
-    {   "Name":"Pressure gauge chamber 1",
+    {
+        "Model":"Pfeiffer Vacuum TPG 261",
         "Address":"COM7",
-        "Type":"Pressure Gauge",
-        "Model":"Pfeiffer Vacuum TPG 261",
         "ParallelReadout":false,
+        "tags":{"device":"Pfeiffer Vacuum TPG 261"},
+        "measurement":"pressure",
         "Channels":
         [
-            {   "DeviceChannel":1,
-                "Type":"PRESSURE",
-                "ShortName":"p (Chamber 1)",
-                "LongName":"Pressure (Chamber 1)",
-                "Unit":"mBar"
+            {   
+                "DeviceChannel":1,
+                "field-key":"value",
+                "tags":
+                {
+                    "unit":"mbar",
+                    "chamber": "chamber_1"
+                }
             }
         ]
     },
-    {   "Name":"Pressure gauge chamber 2",
-        "Address":"COM11",
-        "Type":"Pressure Gauge",
+    {
         "Model":"Pfeiffer Vacuum TPG 262",
+        "Address":"COM11",
         "ParallelReadout":false,
+        "tags":{"device":"Pfeiffer Vacuum TPG 262"},
+        "measurement":"pressure",
         "Channels":
         [
-            {   "DeviceChannel":1,
-                "Type":"PRESSURE",
-                "ShortName":"p (Chamber 2)",
-                "LongName":"Pressure (Chamber 2)",
-                "Unit":"mBar"
+            {   
+                "DeviceChannel":1,
+                "field-key":"value",
+                "tags":
+                {
+                    "unit":"mbar",
+                    "chamber":"chamber_1"
+                }
             },
-            {   "DeviceChannel":2,
-                "Type":"PRESSURE",
-                "ShortName":"p (Chamber 2 Tandem)",
-                "LongName":"Pressure (Chamber 2 Tandem Pump)",
-                "Unit":"mBar"
+            {   
+                "DeviceChannel":2,
+                "field-key":"value",
+                "tags":
+                {
+                    "unit":"mbar",
+                    "chamber":"chamber_2_tandem"
+                }
             }
         ]
     },
-    {   "Name":"Pressure gauge chamber 3",
-        "Address":"COM5",
-        "Type":"Pressure Gauge",
+    {
         "Model":"VACOM COLDION CU-100",
+        "Address":"COM5",
         "ParallelReadout":false,
+        "tags":{"device":"VACOM COLDION CU-100"},
+        "measurement":"pressure",
         "Channels":
         [
-            {   "DeviceChannel":1,
-                "Type":"PRESSURE",
-                "ShortName":"p (Chamber 3)",
-                "LongName":"Pressure (Chamber 3)",
-                "Unit":"mBar"
-            }
-        ]
-    },
-    {   "Name":"Pressure gauge chamber 4",
-        "Address":"COM8",
-        "Type":"Pressure Gauge",
-        "Model":"Pfeiffer Vacuum TPG 261",
-        "ParallelReadout":false,
-        "Channels":
-        [
-            {   "DeviceChannel":1,
-                "Type":"PRESSURE",
-                "ShortName":"p (Chamber 4)",
-                "LongName":"Pressure (Chamber 4)",
-                "Unit":"mBar"
+            {   
+                "DeviceChannel":1,
+                "field-key":"value",
+                "tags":
+                {
+                    "unit":"mbar",
+                    "chamber":"chamber_3"
+                }
             }
         ]
     }
