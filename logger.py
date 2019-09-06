@@ -54,7 +54,7 @@ def init_device(device):
 
     :device: Configuration dict of the device to initialize
     """
-    LOG.info("Trying to initialize device %s", device["Name"])
+    LOG.info("Trying to initialize device %s at %s", device["Model"], device["Address"])
 
     if device["Model"] == "Pfeiffer Vacuum TPG 261":
         try:
