@@ -120,10 +120,10 @@ if __name__ == "__main__":
                                                      if x["DeviceChannel"] == current_channel),
                                                     None)
                     if channel_information_dict is None:
-                        LOG.warning("Channel %s of device %s not configured.",
-                                    channel_information_dict, current_device["Name"])
+                        LOG.warning("Channel %s of device %s not configured.", current_channel,
+                                    current_device["Name"])
                     else:
-                        write_value(current_device, current_channel, value)
+                        write_value(current_device, channel_information_dict, value)
             else:
                 for current_channel in current_device["Channels"]:
                     LOG.info("Device channel %d", current_channel["DeviceChannel"])
