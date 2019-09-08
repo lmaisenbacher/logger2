@@ -126,7 +126,6 @@ if __name__ == "__main__":
                         write_value(current_device, channel_information_dict, value)
             else:
                 for current_channel in current_device["Channels"]:
-                    LOG.info("Device channel %d", current_channel["DeviceChannel"])
                     try:
                         measured_value = current_device["Object"].get_value(
                             current_channel["DeviceChannel"])
