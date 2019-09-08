@@ -46,7 +46,7 @@ def write_value(device, channel, value):
             "tags": tags
         }
     ]
-    LOG.info("Channel %d: %f", channel["DeviceChannel"], value)
+    LOG.info("Channel %d: %s", channel["DeviceChannel"], value)
     CLIENT.write_points(json_body)
 
 def init_device(device):
