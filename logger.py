@@ -121,7 +121,7 @@ if __name__ == "__main__":
                                                     None)
                     if channel_information_dict is None:
                         LOG.warning("Channel %s of device %s not configured.", current_channel,
-                                    current_device["Name"])
+                                    current_device["Model"])
                     else:
                         write_value(current_device, channel_information_dict, value)
             else:
