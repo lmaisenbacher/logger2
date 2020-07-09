@@ -46,7 +46,7 @@ def write_value(device, channel, value):
             "tags": tags
         }
     ]
-    LOG.info("Channel %d: %f", channel["DeviceChannel"], value)
+    LOG.info("Channel %d: %s", channel["DeviceChannel"], value)
     CLIENT.write_points(json_body)
 
 def init_device(device):
@@ -121,12 +121,11 @@ if __name__ == "__main__":
                                                     None)
                     if channel_information_dict is None:
                         LOG.warning("Channel %s of device %s not configured.", current_channel,
-                                    current_device["Name"])
+                                    current_device["Model"])
                     else:
-                        write_value(current_device, current_channel, value)
+                        write_value(current_device, channel_information_dict, value)
             else:
                 for current_channel in current_device["Channels"]:
-                    LOG.info("Device channel %d", current_channel["DeviceChannel"])
                     try:
                         measured_value = current_device["Object"].get_value(
                             current_channel["DeviceChannel"])
