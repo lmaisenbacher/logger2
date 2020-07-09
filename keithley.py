@@ -74,8 +74,11 @@ class Multimeter(object):
         try:
             rm = visa.ResourceManager('@py')
             self.device = rm.open_resource(resourceName)
-        except: print("Could not open Keithley 2001 Multimeter (VISA resource {}).".format(resourceName))
-        else: self.devicePresent = True
+        except:
+            print("Could not open Keithley 2001 Multimeter (VISA resource {}).".format(resourceName))
+            return
+        else:
+            self.devicePresent = True
         self.device.write("SYSTEM:PRESET") # Set all settings to default
         self.device.write(":SENSE:VOLTAGE:DC:AVERAGE:TCON REP") # Set the averaging mode to repeat
         self.device.write(":INITIATE:CONTINUOUS OFF") # Disable continuous acquisition

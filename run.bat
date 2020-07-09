@@ -1,2 +1,1 @@
-call Scripts/activate.bat
-python logger.py
+pipenv run python logger.py
