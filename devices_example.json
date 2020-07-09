@@ -115,5 +115,24 @@
                 }
             }
         ]
+    },
+    {
+        "Model":"BURLEIGH WA-1500",
+        "Address":"/dev/ttyUSB0",
+        "ParallelReadout":false,
+        "tags":{"device":"BURLEIGH WA-1500"},
+        "measurement":"wavemeter",
+        "Channels":
+        [
+            {   
+                "DeviceChannel":1,
+                "field-key":"value",
+                "tags":
+                {
+                    "unit":"GHz",
+                    "laser":"he_reference"
+                }
+            }
+        ]
     }
 ]

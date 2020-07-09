@@ -12,6 +12,7 @@ import pfeiffer
 import pfeiffer_eth
 import vacom
 import keithley
+import burleigh
 
 LOG = logging.getLogger()
 
@@ -83,6 +84,9 @@ def init_device(device):
         except socket.error as err:
             LOG.error("Could not connect to TCP/IP device: %s", err)
             return
+
+    if device["Model"] == "BURLEIGH WA-1500":
+        device["Object"] = burleigh.Wavemeter(device["Address"])
 
     if device["Model"] == "Keithley 2001 Multimeter":
         device["Object"] = keithley.Multimeter(device["Address"])
