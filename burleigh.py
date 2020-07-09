@@ -28,18 +28,18 @@ class Wavemeter():
             self.serial.flushInput() # Flush old broadcasts
 
     def get_frequency(self):
-        """Return the currently measured laser frequency in GHz or -1 of the device is not present"""
+        """Return the currently measured laser frequency in Hz or -1 of the device is not present"""
         if not self.device_present:
             LOG.warning("get_frequency() called for non-present Burleigh WA-1000/1500 wavemeter.")
             return -1
         self.serial.write("@\x51\r\n".encode()) # Query
         response = self.serial.read(23)
-        return float(response[1:11])
+        return 1E9*float(response[1:11])
 
     def get_value(self, _channel):
         """Perform a pressure measurement of the specified channel and return the value
 
         :param _channel: Ignored, since there is only one channel
-        :return: The measured value in GHz
+        :return: The measured value in Hz
         """
         return self.get_frequency()
