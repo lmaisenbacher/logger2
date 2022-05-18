@@ -4,7 +4,7 @@
 """
 
 import time
-import visa
+import pyvisa as visa
 
 SWITCHTIME = 10E-3 # Time (in s) to sleep between switching channel and taking measurement
 

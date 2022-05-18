@@ -6,7 +6,7 @@ name = "pypi"
 [packages]
 pyserial = "*"
 PyVISA = "*"
-influxdb = "*"
+influxdb-client = "*"
 
 [dev-packages]
 

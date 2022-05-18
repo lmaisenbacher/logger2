@@ -1,4 +1,3 @@
-database.sqlite
 *.swp
 __pycache__
 *.swp
@@ -7,3 +6,7 @@ Lib
 Scripts
 tcl
 pip-selfcheck.json
+
+# Configuration files
+config.ini
+devices.json
