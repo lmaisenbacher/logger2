@@ -1,9 +1,12 @@
-"""Multi-purpose data logging software."""
+"""
+
+Test of database connection.
+Writes random numbers to measurement "test".
+
+"""
 import configparser
-import json
 import time
 import logging
-import socket
 import random
 
 import influxdb_client
@@ -11,6 +14,7 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 
 LOG = logging.getLogger()
 
+# Read config file
 CONFIGPATH = "config.ini"
 
 CONF = configparser.ConfigParser()
@@ -25,12 +29,7 @@ TIMEOUT = int(CONF["Devices"]["timeout"])
 
 DEVICE_CONFIG_PATH = CONF["Devices"]["configpath"]
 
-# bucket = "Unitrap"
-# org = "Unitrap"
-# token = "QU3ThIPFYoXVd8hKWag_xRkrZTIUP2esSsAe-JECyWvRJwwV_qXNvqbmwfITF5gDj110fYlMCM-TGBe6vQ5xSg=="
-# Store the URL of your InfluxDB instance
-# url = "http://localhost:8086"
-
+# Set up database connection
 client = influxdb_client.InfluxDBClient(
    url=DB_URL,
    token=DB_TOKEN,
@@ -39,14 +38,15 @@ client = influxdb_client.InfluxDBClient(
 write_api = client.write_api(write_options=SYNCHRONOUS)
 
 def write_value(device, channel, value):
-    """Write a new measured value to the database
+    """
+    Write a new measured value to the database.
 
     :device: Configuration dict of the device
     :channel_id: Configuration dict of the measurement channel
     :value: Measured value
     """
     tags = device["tags"]
-    tags.update(channel["tags"])
+    tags.update(channel.get("tags", {}))
     if "Multiplier" in channel:
         value *= channel["Multiplier"]
     json_body = [
@@ -57,7 +57,8 @@ def write_value(device, channel, value):
         }
     ]
     LOG.info("Channel %d: %s", channel["DeviceChannel"], value)
-    CLIENT.write_points(json_body)
+    write_api.write(
+        DB_BUCKET, DB_ORG, json_body)
 
 def _setup_logging():
     """Configure the application logging setup."""
@@ -67,15 +68,14 @@ if __name__ == "__main__":
     _setup_logging()
     while True:
         value = random.random()
-        json_body = [
-            {
-                "measurement": "test",
-                "fields": {"value": value},
-                "tags": {"device": "random-number-gen"}
+        device = {
+            "measurement": "test",
+            "tags": {"device": "random-number-gen"},
             }
-        ]
-        LOG.info("Channel: %f", value)
-        write_api.write(
-            DB_BUCKET, DB_ORG, json_body)
+        channel = {
+            "DeviceChannel": 1,
+            "field-key": "value",
+            }
+        write_value(device, channel, value)
 
         time.sleep(UPDATE_INTERVAL)
