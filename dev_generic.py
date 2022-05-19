@@ -16,8 +16,7 @@ logger = logging.getLogger()
 class Device:
     
     def __init__(self, device):
-        """
-        """
+        """Init device."""
         self.device_present = False        
         self.device = device
         self.visa_warning = False        
@@ -43,17 +42,17 @@ class Device:
         else:
             return int(value_float)
 
-    def closeConn(self):
+    # def closeConn(self):
 
-        None
+    #     None
         
     def init_visa(self):
-
+        """Initialize VISA connection."""
         # Initialize PyVISA to talk to VISA devices
         visa_rm = pyvisa.ResourceManager()
         visa_rsrc_list = visa_rm.list_resources()
 
-    #     # Check if devices defined in settings can be found, if yes open device connection
+        # Check if device can be found, if yes open device connection
         logger.info(
             'Connecting to device \'%s\' with VISA resource name \'%s\'',
             self.device['Device'], self.device['Address'])
@@ -68,12 +67,10 @@ class Device:
             except:
                 msg = 'VISA error: Could not connect to device!'
                 logger.error(msg)
-                raise LoggerError(msg)                
-                
-            else:
-                if 'Timeout' in self.device:
-                    self.visa_resource.timeout = self.device['Timeout']
-                self.visa_dev_status = True
+                raise LoggerError(msg)
+            if 'Timeout' in self.device:
+                self.visa_resource.timeout = self.device['Timeout']
+            if self.device.get('VISAIDN', None) is not None:
                 if visa_rcvd_idn == self.device['VISAIDN']:
                     logger.info(
                         'Received instrument IDN (\'%s\') matches saved IDN!', visa_rcvd_idn
@@ -81,14 +78,15 @@ class Device:
                 else:
                     logger.warning(
                         'VISA warning: Received instrument IDN (\'%s\')'
-                        +' DOES NOT matche saved IDN!',
+                        +' DOES NOT match saved IDN!',
                         visa_rcvd_idn)
                     self.visa_warning = True
-                if self.device.get('CmdOnInit', None) is not None:
-                    logger.info(
-                        'Sending initialization command \'%s\' to VISA device \'%s\'',
-                        self.device['CmdOnInit'], self.device['Device'])
-                    self.visa_write(self.device['CmdOnInit'])
+            if self.device.get('CmdOnInit', None) is not None:
+                logger.info(
+                    'Sending initialization command \'%s\' to VISA device \'%s\'',
+                    self.device['CmdOnInit'], self.device['Device'])
+                self.visa_write(self.device['CmdOnInit'])
+            self.device_present = True
         else:
             msg = (
                 f'VISA error: No device with VISA resource name \'{self.device["Address"]}\''

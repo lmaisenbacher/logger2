@@ -1,0 +1,78 @@
+[
+    {
+        "Device":"Keysight DAQ973A Multimeter 1",
+        "Model":"Keysight DAQ973A",
+        "Address":"TCPIP0::K-DAQ973A-0296.local::inst0::INSTR",
+        "VISAIDN":"Keysight Technologies,DAQ973A,MY59000296,A.02.02-01.00-02.01-00.02-02.00-03-03",
+        "NPLC":10,
+        "ParallelReadout":true,
+        "tags":{},
+        "measurement":"temperature",
+        "Timeout":60000,        
+        "Channels":
+        {
+            "101":
+            {   
+                "DeviceChannel":101,
+                "Type":"DCV",
+                "Multiplier":1,
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"101",
+                    "unit":"V"
+                }
+            },
+            "102":
+            {   
+                "DeviceChannel":102,
+                "Type":"DCV",
+                "Multiplier":1,
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"102",
+                    "unit":"V"
+                }
+            }            
+        }
+    },
+    {
+        "Device":"Keysight DAQ973A Multimeter 1",
+        "Model":"Keysight DAQ973A",
+        "Address":"TCPIP0::K-DAQ973A-0296.local::inst0::INSTR",
+        "VISAIDN":"Keysight Technologies,DAQ973A,MY59000296,A.02.02-01.00-02.01-00.02-02.00-03-03",
+        "AveragingTime":0.001,
+        "ParallelReadout":true,
+        "tags":{},
+        "measurement":"temperature",
+        "Timeout":60000,        
+        "Channels":
+        {
+            "103":
+            {   
+                "DeviceChannel":103,
+                "Type":"DCV",
+                "Multiplier":1,
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"103",
+                    "unit":"V"
+                }
+            },
+            "104":
+            {   
+                "DeviceChannel":104,
+                "Type":"DCV",
+                "Multiplier":1,
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"104",
+                    "unit":"V"
+                }
+            }            
+        }
+    }
+]

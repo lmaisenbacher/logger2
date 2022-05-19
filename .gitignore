@@ -1,12 +1,14 @@
+__pycache__/
+.pylint.d/
 *.swp
-__pycache__
 *.swp
 Include
 Lib
 Scripts
 tcl
 pip-selfcheck.json
+*.bak
 
 # Configuration files
-config.ini
-devices.json
+config*.ini
+devices*.json
