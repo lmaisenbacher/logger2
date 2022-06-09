@@ -12,6 +12,7 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 
 # Device modules
 import dev_keysightdaq973a
+import dev_smc
 
 logger = logging.getLogger()
 
@@ -32,6 +33,9 @@ def init_device(device):
     if device["Model"] == "Keysight DAQ973A":
         device_instance = dev_keysightdaq973a.Device(device)
         
+    if device["Model"] == "SMC-HRS012-AN-10-T":
+        device_instance = dev_smc.Device(device)
+
     if device_instance is None:
         msg = f'Unknown device model \'{device["Model"]}\''
         logger.error(msg)
