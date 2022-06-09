@@ -1,5 +1,45 @@
 [
     {
+        "Device":"Chiller for 1064 nm fiber amplifier",
+        "Model":"SMC-HRS012-AN-10-T",
+        "Address":"/dev/ttyUSB0",
+        "SMCAddress":"01",
+        "SerialBaudrate":9600,
+        "SerialBytesize":8,
+        "SerialStopbits":2,
+        "SerialParity":"N",
+        "Timeout":1,
+        "NPLC":10,
+        "ParallelReadout":true,
+        "tags":{},
+        "measurement":"temperature",
+        "Channels":
+        {
+            "PV1":
+            {   
+                "Type":"PV1",
+                "Multiplier":1,
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"Returning",
+                    "unit":"DegC"
+                }
+            },
+            "SV1":
+            {   
+                "Type":"SV1",
+                "Multiplier":1,
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"Setpoint",
+                    "unit":"DegC"
+                }
+            }         
+        }        
+    },
+    {
         "Device":"Keysight DAQ973A Multimeter 1",
         "Model":"Keysight DAQ973A",
         "Address":"TCPIP0::K-DAQ973A-0296.local::inst0::INSTR",
