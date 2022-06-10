@@ -31,6 +31,10 @@ On Raspberry Pi, importing `numpy` might not work right away, as compiled librar
 sudo apt-get install libatlas-base-dev
 ```
 
+### Adapting configuration
+
+The logger uses to configuration files. `config.ini` contains the configuration of the database access, the update interval of the logger, and where the device configuration file is located. An example of a `config.ini` is included in the repository as `example_config.ini`. The device configuration file is a JSON files that lists which devices and which channels on the given devices are read by the logger. An example device configuration file is included as `example_devices.json`.
+
 ## Running the logger
 
 ### Using `pipenv`
@@ -91,10 +95,26 @@ The status of the daemon can be checked with
 sudo systemctl status logger_chiller
 ```
 
+If everything is fine, this should output something like
+
+```
+● logger_chiller.service - Logger for chiller for 1064 nm fiber amplifier
+     Loaded: loaded (/etc/systemd/system/logger_chiller.service; enabled; vendor preset: enabled)
+     Active: active (running) since Thu 2022-06-09 18:18:50 PDT; 3s ago
+```
+
+Note the `enabled` in the second line - this will only be there if the daemon has been enabled as described below.
+
 The output of the daemon, which will also include more details in case it fails to start, can be viewed with
 
 ```
 sudo journalctl -fu logger_chiller
+```
+
+To stop the service, use
+
+```
+sudo systemctl stop logger_chiller
 ```
 
 If the daemon should be started upon boot, it needs to be 'enabled' with
