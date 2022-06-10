@@ -58,9 +58,13 @@ if __name__ == "__main__":
     CONFIGPATH = parser.parse_args().configpath
     
     # Read config file
-    logger.info(f'Reading config from file \'{CONFIGPATH}\'')
+    logger.info('Reading config from file \'%s\'', CONFIGPATH)
     CONF = configparser.ConfigParser()
-    CONF.read(CONFIGPATH)
+    files_read = CONF.read(CONFIGPATH)
+    if CONFIGPATH not in files_read:
+        msg = f'Could not read configuration file \'{CONFIGPATH}\''
+        logger.error(msg)
+        raise LoggerError(msg)        
     
     DB_URL = CONF["Database"]["url"]
     DB_BUCKET = CONF["Database"]["bucket"]
