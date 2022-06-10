@@ -3,13 +3,18 @@
         "Device":"Chiller for 1064 nm fiber amplifier",
         "Model":"SMC-HRS012-AN-10-T",
         "Address":"/dev/ttyUSB0",
-        "SMCAddress":"01",
-        "SerialBaudrate":9600,
-        "SerialBytesize":8,
-        "SerialStopbits":2,
-        "SerialParity":"N",
+        "SerialConnectionParams":
+        {
+            "baudrate":9600,
+            "bytesize":8,
+            "stopbits":2,
+            "parity":"N"
+        },
+        "DeviceSpecificParams":
+        {
+            "InternalAddress":"01"
+        },
         "Timeout":1,
-        "NPLC":10,
         "ParallelReadout":true,
         "tags":{},
         "measurement":"temperature",
@@ -44,7 +49,10 @@
         "Model":"Keysight DAQ973A",
         "Address":"TCPIP0::K-DAQ973A-0296.local::inst0::INSTR",
         "VISAIDN":"Keysight Technologies,DAQ973A,MY59000296,A.02.02-01.00-02.01-00.02-02.00-03-03",
-        "NPLC":10,
+        "DeviceSpecificParams":
+        {
+            "NPLC":10
+        },        
         "ParallelReadout":true,
         "tags":{},
         "measurement":"temperature",

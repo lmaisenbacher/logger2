@@ -17,6 +17,11 @@ class Device:
     
     def __init__(self, device):
         """Init device."""
+        # Add default values
+        device = {
+            'DeviceSpecificParams': {},
+            **device
+            }
         self.device_present = False        
         self.device = device
         self.visa_warning = False        

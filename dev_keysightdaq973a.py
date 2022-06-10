@@ -101,9 +101,9 @@ class Device(dev_generic.Device):
         if len(chans) > 0:
             # Switch on channel number in returned data
             self.visa_write('FORM:READ:CHAN ON')
-        if self.device.get('NPLC'):
+        if self.device['DeviceSpecificParams'].get('NPLC'):
             # print(self.device.get('NPLC'))
-            self.set_num_line_cycles(self.device['NPLC'], device_channels)
+            self.set_num_line_cycles(self.device['DeviceSpecificParams']['NPLC'], device_channels)
         if self.device.get('AveragingTime'):
             # print(self.device.get('AveragingTime'))
             self.set_averaging_time(self.device['AveragingTime'], device_channels)
