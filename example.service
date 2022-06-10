@@ -1,0 +1,13 @@
+[Unit]
+Description=Logger for chiller for 1064 nm fiber amplifier
+After=multi-user.traget
+
+[Service]
+Type=simple
+Restart=always
+WorkingDirectory=/home/rp-chiller/Coding/logger2
+ExecStart=/home/rp-chiller/.local/bin/pipenv run python /home/rp-chiller/Coding/logger2/logger.py
+User=rp-chiller
+
+[Install]
+WantedBy=multi-user.target
