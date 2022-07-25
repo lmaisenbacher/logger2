@@ -1,6 +1,12 @@
 # logger2
 A logger that reads out various devices and writes the output to an InfluxDB (>2.0).
 
+## Supported devices
+
+- Keysight DAQ970A/973A multimeter
+- SMC HRS012-AN-10-T chiller
+- PurpleAir air quality sensor/particle counters, read out through web API
+
 ## Preparation
 
 ### Installing `pipenv`

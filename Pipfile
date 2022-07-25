@@ -8,6 +8,7 @@ pyserial = "*"
 PyVISA = "*"
 influxdb-client = "*"
 numpy = "*"
+requests = "*"
 
 [dev-packages]
 

@@ -122,5 +122,28 @@
                 }
             }            
         }
-    }
+    },
+    {
+        "Device":"PurpleAir",
+        "Model":"PurpleAir",
+        "PurpleAirAPIKey": "",
+        "ParallelReadout":true,
+        "tags":{},
+        "measurement":"particlecounts",
+        "Timeout":10,        
+        "Channels":
+        {
+            "Test":
+            {   
+                "Multiplier":1,
+                "PurpleAirSensorIndex":"108682",                
+                "field-key":"0.3_um_count",
+                "tags":
+                {
+                    "sensor":"Gnome Tractor Garden (outside)",
+                    "unit":"particles/dl"
+                }
+            }
+        }
+    }    
 ]

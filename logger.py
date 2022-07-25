@@ -1,4 +1,9 @@
-"""Multi-purpose data logging software."""
+# -*- coding: utf-8 -*-
+"""
+Multi-purpose data logging software.
+
+@author: Lothar Maisenbacher/Berkeley.
+"""
 import configparser
 import json
 import time
@@ -13,6 +18,7 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 # Device modules
 import dev_keysightdaq973a
 import dev_smc
+import dev_purpleair
 
 logger = logging.getLogger()
 
@@ -35,6 +41,9 @@ def init_device(device):
         
     if device["Model"] == "SMC-HRS012-AN-10-T":
         device_instance = dev_smc.Device(device)
+        
+    if device["Model"] == "PurpleAir":
+        device_instance = dev_purpleair.Device(device)        
 
     if device_instance is None:
         msg = f'Unknown device model \'{device["Model"]}\''
@@ -123,9 +132,11 @@ if __name__ == "__main__":
         try:
             
             for device, instance in zip(devices, device_instances):
-                logger.info(
-                    'Reading device: \'%s\' at \'%s\'',
-                    device["Device"], device["Address"])
+                if device.get('Address') is not None:
+                    logger.info(
+                        'Reading device: \'%s\' at \'%s\'', device['Device'], device['Address'])
+                else:
+                    logger.info('Reading device: \'%s\'', device['Device'])
                 if device["ParallelReadout"]:
                     try:
                         readings = instance.get_values()
