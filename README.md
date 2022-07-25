@@ -25,6 +25,8 @@ Once `pipenv` is installed, the required dependencies of `logger2` can be instal
 pipenv install
 ```
 
+It might be desirable to use the option `--skip-lock` for the above command, which always uses `Pipfile` to resolve the requirements and not `Pipfile.lock`, and does not write an updated `Pipfile.lock`. This might be necessary when switching between different system architectures (e.g., Windows on AMD64 to Linux on Raspberry Pi).
+
 To check whether the dependencies have been installed correctly, one can run Python in the newly created environment with
 
 ```
