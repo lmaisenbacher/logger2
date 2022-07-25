@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 This module contains a driver for PurpleAir air quality sensor/particle counters,
-accessible through the API at `https://api.purpleair.com/`.
+with measurements read from the web API at `https://api.purpleair.com/`.
 
 Currently, each sensor - here defined as a channel - is read out with a separate API request.
 In the future, the group feature of the API should be used to read out multiple sensors.
