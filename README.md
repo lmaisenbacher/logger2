@@ -85,7 +85,11 @@ User=rp-chiller
 WantedBy=multi-user.target
 ```
 
-Importantly, the daemon is run under the user `rp-chiller`, as given by `User=rp-chiller`, which is the user for which `pipenv` was installed here. Also important is to define the working directory with `WorkingDirectory=...` to be the directory where the configuration file `config.ini` and the device JSON file defined in that configuration file are located, which here is just the directory of the repository itself.
+Importantly, the daemon is run under the user `rp-chiller`, as given by `User=rp-chiller`, which is the user for which `pipenv` was installed here. Also important is to define the working directory with `WorkingDirectory=...` to be the directory where the virtual environment of `pipenv` was initialized, and where the configuration file `config.ini` and the device JSON file defined in that configuration file are located, which here is just the directory of the repository itself. To use a different `config.ini` - and the device JSON defined in that `config.ini` - use the `-c` command line argument, e.g., to use `home/rp-chiller/Coding/logger2-config/chiller/config.ini`:
+
+```
+ExecStart=/home/rp-chiller/.local/bin/pipenv run python /home/rp-chiller/Coding/logger2/logger.py -c /home/rp-chiller/Coding/logger2-config/chiller/config.ini
+```
 
 After creating a new configuration file or editing it, the configurations need to be re-loaded with
 
