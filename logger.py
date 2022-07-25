@@ -60,18 +60,19 @@ if __name__ == "__main__":
     _setup_logging()    
         
     # Parse input arguments
-    parser = argparse.ArgumentParser(description='Log measurement groups.')
+    parser = argparse.ArgumentParser(
+        description='logger2 (https://github.com/lmaisenbacher/logger2)')
     parser.add_argument(
-        '-c','--config', dest='configpath', help='Measurement groups', required=False,
+        '-c','--config', dest='configpath', help='Path to configuration file', required=False,
         default=CONFIGPATH_DEFAULT)
-    CONFIGPATH = parser.parse_args().configpath
+    config_path = parser.parse_args().configpath
     
     # Read config file
-    logger.info('Reading config from file \'%s\'', CONFIGPATH)
+    logger.info('Reading config from file \'%s\'', config_path)
     CONF = configparser.ConfigParser()
-    files_read = CONF.read(CONFIGPATH)
-    if CONFIGPATH not in files_read:
-        msg = f'Could not read configuration file \'{CONFIGPATH}\''
+    files_read = CONF.read(config_path)
+    if config_path not in files_read:
+        msg = f'Could not read configuration file \'{config_path}\''
         logger.error(msg)
         raise LoggerError(msg)        
     

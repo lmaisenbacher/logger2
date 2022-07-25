@@ -41,7 +41,9 @@ sudo apt-get install libatlas-base-dev
 
 ### Adapting configuration
 
-The logger uses to configuration files. `config.ini` contains the configuration of the database access, the update interval of the logger, and where the device configuration file is located. An example of a `config.ini` is included in the repository as `example_config.ini`. The device configuration file is a JSON files that lists which devices and which channels on the given devices are read by the logger. An example device configuration file is included as `example_devices.json`.
+The logger uses two configuration files. `config.ini` contains the configuration of the database access, the update interval of the logger, and where the device configuration file is located. An example of a `config.ini` is included in the repository as `example_config.ini`. The device configuration file is a JSON files that lists which devices and which channels on the given devices are read by the logger. An example device configuration file is included as `example_devices.json`.
+
+By default, the logger will look for `config.ini` in the current working directory. To use a specific `config.ini`, use the command line option `-c` to define the path to that file, e.g., `python logger.py -c /path/to/config.ini`.
 
 ## Running the logger
 
