@@ -1,10 +1,12 @@
 # logger2
 A logger that reads out various devices and writes the output to an InfluxDB (>2.0).
 
+Maintaned by Lothar Maisenbacher (UC Berkeley), partly based on earlier software from Fabian Schmid and me at Max Planck Institute of Quantum Optics (MPQ).
+
 ## Supported devices
 
 - Keysight DAQ970A/973A multimeter
-- SMC HRS012-AN-10-T chiller
+- SMC HRS012-AN-10-T chiller (contributions by Jack Mango (UC Berkeley))
 - PurpleAir air quality sensor/particle counters, read out through web API
 
 ## Preparation
