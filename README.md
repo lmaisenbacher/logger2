@@ -61,10 +61,10 @@ The file `run.bat` in the repository just contains this line for convenience.
 
 The logger can be run as a system service, or daemon, in the background, also allowing it to be launched automatically after booting.
 
-First, create a new daemon configuration file, here named `logger_chiller.service` to read out the temperatures of a laser chiller, using
+First, create a new daemon configuration file, here named `logger-chiller.service` to read out the temperatures of a laser chiller, using
 
 ```
-sudo nano /etc/systemd/system/logger_chiller.service
+sudo nano /etc/systemd/system/logger-chiller.service
 ```
 
 Continuing the example of the laser chiller, the configuration file can e.g. look like
@@ -100,20 +100,20 @@ sudo systemctl daemon-reload
 Now, we can start the daemon with
 
 ```
-sudo systemctl start logger_chiller
+sudo systemctl start logger-chiller
 ```
 
 The status of the daemon can be checked with
 
 ```
-sudo systemctl status logger_chiller
+sudo systemctl status logger-chiller
 ```
 
 If everything is fine, this should output something like
 
 ```
-● logger_chiller.service - Logger for chiller for 1064 nm fiber amplifier
-     Loaded: loaded (/etc/systemd/system/logger_chiller.service; enabled; vendor preset: enabled)
+● logger-chiller.service - Logger for chiller for 1064 nm fiber amplifier
+     Loaded: loaded (/etc/systemd/system/logger-chiller.service; enabled; vendor preset: enabled)
      Active: active (running) since Thu 2022-06-09 18:18:50 PDT; 3s ago
 ```
 
@@ -122,17 +122,17 @@ Note the `enabled` in the second line - this will only be there if the daemon ha
 The output of the daemon, which will also include more details in case it fails to start, can be viewed with
 
 ```
-sudo journalctl -fu logger_chiller
+sudo journalctl -fu logger-chiller
 ```
 
 To stop the service, use
 
 ```
-sudo systemctl stop logger_chiller
+sudo systemctl stop logger-chiller
 ```
 
 If the daemon should be started upon boot, it needs to be 'enabled' with
 
 ```
-sudo systemctl enable logger_chiller
+sudo systemctl enable logger-chiller
 ```
