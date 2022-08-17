@@ -9,6 +9,7 @@ import json
 import time
 import logging
 import argparse
+from pathlib import Path
 
 from defs import LoggerError
 
@@ -65,13 +66,13 @@ if __name__ == "__main__":
     parser.add_argument(
         '-c','--config', dest='configpath', help='Path to configuration file', required=False,
         default=CONFIGPATH_DEFAULT)
-    config_path = parser.parse_args().configpath
+    config_path = Path(parser.parse_args().configpath).absolute()
     
     # Read config file
-    logger.info('Reading config from file \'%s\'', config_path)
+    logger.info('Reading configuration from file \'%s\'', config_path)
     CONF = configparser.ConfigParser()
     files_read = CONF.read(config_path)
-    if config_path not in files_read:
+    if str(config_path) not in files_read:
         msg = f'Could not read configuration file \'{config_path}\''
         logger.error(msg)
         raise LoggerError(msg)        
@@ -83,7 +84,10 @@ if __name__ == "__main__":
     UPDATE_INTERVAL = int(CONF["Update"]["interval"])
     TIMEOUT = int(CONF["Devices"]["timeout"])
     
-    DEVICE_CONFIG_PATH = CONF["Devices"]["configpath"]
+    device_config_path = Path(CONF["Devices"]["configpath"])
+    # If path to `devices.json` is relative, use directory of `config.ini`
+    if not device_config_path.is_absolute():
+        device_config_path = config_path.parent.joinpath(device_config_path)
     
     def write_value(device, channel_id, value):
         """
@@ -123,8 +127,14 @@ if __name__ == "__main__":
     )
     write_api = client.write_api(write_options=SYNCHRONOUS)
     
-    with open(DEVICE_CONFIG_PATH) as device_config:
-        devices = json.load(device_config)
+    logger.info('Reading device configuration from file \'%s\'', device_config_path)    
+    try:
+        with open(device_config_path) as device_config:
+            devices = json.load(device_config)
+    except FileNotFoundError as e:
+        msg = f'Could not read device configuration file \'{device_config_path}\': {e}'
+        logger.error(msg)
+        raise LoggerError(msg)
     device_instances = []
     for i_device, device in enumerate(devices):
         device_instances.append(init_device(device))
