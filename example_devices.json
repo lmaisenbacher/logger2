@@ -124,6 +124,40 @@
         }
     },
     {
+        "Device":"Kurt J. Lesker Ion Gauge",
+        "Model":"KJLC 354",
+        "Address":"/dev/ttyUSB0",
+        "SerialConnectionParams":
+        {
+            "baudrate":19200,
+            "bytesize":8,
+            "stopbits":1,
+            "parity":"N"
+        },
+        "DeviceSpecificParams":
+        {
+            "InternalAddress":"01"
+        },
+        "Timeout":1,
+        "ParallelReadout":true,
+        "tags":{},
+        "measurement":"pressure",
+        "Channels":
+        {
+            "Ion Gauge":
+            {   
+                "Type":"Ion Gauge",
+                "Multiplier":1,
+                "field-key":"Ion Gauge Pressure",
+                "tags":
+                {
+                    "sensor":"Ion Gauge Pressure",
+                    "unit":"Torr"
+                }
+            }      
+        }        
+    },
+    {
         "Device":"PurpleAir",
         "Model":"PurpleAir",
         "PurpleAirAPIKey": "",
