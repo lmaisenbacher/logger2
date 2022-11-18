@@ -20,6 +20,7 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 import dev_keysightdaq973a
 import dev_smc
 import dev_purpleair
+import dev_kjlc354
 
 logger = logging.getLogger()
 
@@ -44,7 +45,10 @@ def init_device(device):
         device_instance = dev_smc.Device(device)
         
     if device["Model"] == "PurpleAir":
-        device_instance = dev_purpleair.Device(device)        
+        device_instance = dev_purpleair.Device(device)
+        
+    if device["Model"] == "KJLC 354":
+        device_instance = dev_kjlc354.Device(device)
 
     if device_instance is None:
         msg = f'Unknown device model \'{device["Model"]}\''
