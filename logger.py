@@ -21,6 +21,7 @@ import dev_keysightdaq973a
 import dev_smchrs012
 import dev_purpleair
 import dev_kjlc354
+import dev_metonedr528
 
 logger = logging.getLogger()
 
@@ -38,21 +39,25 @@ def init_device(device):
 
     device_instance = None
 
-    # Keysight DAQ970A/973A multimeter (VISA)
-    if device["Model"] == "Keysight DAQ973A":
+    # Keysight DAQ970A/973A multimeter (via VISA interface)
+    if device['Model'] == 'Keysight DAQ973A':
         device_instance = dev_keysightdaq973a.Device(device)
 
-    # SMC HRS012-AN-10-T chiller (RS-232)
-    if device["Model"] == "SMC-HRS012-AN-10-T":
+    # SMC HRS012-AN-10-T chiller (via RS-232 port)
+    if device['Model'] == 'SMC HRS012-AN-10-T':
         device_instance = dev_smchrs012.Device(device)
 
-    # PurpleAir air quality sensor/particle counters (web API)
-    if device["Model"] == "PurpleAir":
+    # PurpleAir air quality sensor/particle counters (via web API)
+    if device['Model'] == 'PurpleAir':
         device_instance = dev_purpleair.Device(device)
 
-    # Kurt J. Lesker KJLC 354 series ion pressure gauge (RS-485)
-    if device["Model"] == "KJLC 354":
+    # Kurt J. Lesker KJLC 354 series ion pressure gauge (via RS-485 port)
+    if device['Model'] == 'KJLC 354':
         device_instance = dev_kjlc354.Device(device)
+
+    # Met One DR-528 handheld particle counter (via RS-232 port)
+    if device['Model'] == 'Met One DR-528':
+        device_instance = dev_metonedr528.Device(device)
 
     if device_instance is None:
         msg = f'Unknown device model \'{device["Model"]}\''

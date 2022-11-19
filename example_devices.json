@@ -1,7 +1,7 @@
 [
     {
         "Device":"Chiller for 1064 nm fiber amplifier",
-        "Model":"SMC-HRS012-AN-10-T",
+        "Model":"SMC HRS012-AN-10-T",
         "Address":"/dev/ttyUSB0",
         "SerialConnectionParams":
         {
@@ -45,7 +45,7 @@
         }        
     },
     {
-        "Device":"Keysight DAQ973A Multimeter 1",
+        "Device":"Keysight DAQ973A multimeter 1",
         "Model":"Keysight DAQ973A",
         "Address":"TCPIP0::K-DAQ973A-0296.local::inst0::INSTR",
         "VISAIDN":"Keysight Technologies,DAQ973A,MY59000296,A.02.02-01.00-02.01-00.02-02.00-03-03",
@@ -86,7 +86,7 @@
         }
     },
     {
-        "Device":"Keysight DAQ973A Multimeter 1",
+        "Device":"Keysight DAQ973A multimeter 1",
         "Model":"Keysight DAQ973A",
         "Address":"TCPIP0::K-DAQ973A-0296.local::inst0::INSTR",
         "VISAIDN":"Keysight Technologies,DAQ973A,MY59000296,A.02.02-01.00-02.01-00.02-02.00-03-03",
@@ -124,40 +124,6 @@
         }
     },
     {
-        "Device":"Kurt J. Lesker Ion Gauge",
-        "Model":"KJLC 354",
-        "Address":"/dev/ttyUSB0",
-        "SerialConnectionParams":
-        {
-            "baudrate":19200,
-            "bytesize":8,
-            "stopbits":1,
-            "parity":"N"
-        },
-        "DeviceSpecificParams":
-        {
-            "InternalAddress":"01"
-        },
-        "Timeout":1,
-        "ParallelReadout":true,
-        "tags":{},
-        "measurement":"pressure",
-        "Channels":
-        {
-            "Ion Gauge":
-            {   
-                "Type":"Ion Gauge",
-                "Multiplier":1,
-                "field-key":"Ion Gauge Pressure",
-                "tags":
-                {
-                    "sensor":"Ion Gauge Pressure",
-                    "unit":"Torr"
-                }
-            }      
-        }        
-    },
-    {
         "Device":"PurpleAir",
         "Model":"PurpleAir",
         "PurpleAirAPIKey": "",
@@ -179,5 +145,92 @@
                 }
             }
         }
-    }    
+    },	
+    {
+        "Device":"Kurt J. Lesker KJLC 354 ion pressure gauge",
+        "Model":"KJLC 354",
+        "Address":"/dev/ttyUSB0",
+        "SerialConnectionParams":
+        {
+            "baudrate":19200,
+            "bytesize":8,
+            "stopbits":1,
+            "parity":"N"
+        },
+        "DeviceSpecificParams":
+        {
+            "InternalAddress":"01"
+        },
+        "Timeout":1,
+        "ParallelReadout":true,
+        "tags":{},
+        "measurement":"pressure",
+        "Channels":
+        {
+            "PressureGauge1":
+            {   
+                "Type":"Pressure",
+                "Multiplier":1,
+                "field-key":"pressure",
+                "tags":
+                {
+                    "sensor":"PressureGauge1",
+                    "unit":"Torr"
+                }
+            }      
+        }        
+    },
+    {
+        "Device":"Met One DR-528 handheld particle counter",
+        "Model":"Met One DR-528",
+        "Address":"COM3",
+        "SerialConnectionParams":
+        {
+            "baudrate":115200,
+            "bytesize":8,
+            "stopbits":1,
+            "parity":"N"
+        },
+        "Timeout":10,
+        "ParallelReadout":true,
+        "tags":{},
+        "measurement":"particlecounts",
+        "Channels":
+        {
+            "0.3(CF)":
+            {   
+                "Type":"0.3(CF)",
+                "Multiplier":1,
+                "field-key":"0.3_um_count",
+                "tags":
+                {
+                    "sensor":"Unitrap1",
+                    "unit":"Counts"
+                }
+            },
+            
+            "AT(C)":
+            {   
+                "Type":"Atmospheric Temperature",
+                "Multiplier":1,
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"Unitrap1",
+                    "unit":"DegC"
+                }
+            },
+            "RH(%)":
+            {   
+                "Type":"Relative Humidity",
+                "Multiplier":1,
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"Unitrap1",
+                    "unit":"%"
+                }
+            }
+        }
+    }	
 ]
