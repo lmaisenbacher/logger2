@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-This module contains drivers for the KJLC 354 Series Ion Gauge.
-It implements the RS-485 protocol of the ion gauge over a serial port
-to read out the pressure in Torr.
+This module contains drivers for the Kurt J. Lesker KJLC 354 series ion pressure gauge.
+It implements the serial protocol of the gauge over a RS-485 port
+(not to be confused with a RS-232 port, which uses the same 9-pin sub-D connector)
+to read out the pressure in units of Torr.
 """
 
 import serial
@@ -31,7 +32,6 @@ class Device(dev_generic.Device):
         except serial.SerialException:
             raise LoggerError(
                 f"Serial connection with {device['Device']} couldn't be opened")
-
 
     def read_pressure(self):
         query = f'#{self.device["DeviceSpecificParams"]["InternalAddress"]}RD\r'.encode("ASCII")

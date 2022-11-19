@@ -5,10 +5,10 @@ Maintaned by Lothar Maisenbacher (UC Berkeley), partly based on earlier software
 
 ## Supported devices
 
-- Keysight DAQ970A/973A multimeter
-- SMC HRS012-AN-10-T chiller (contributions by Jack Mango (UC Berkeley))
-- PurpleAir air quality sensor/particle counters, read out through web API
-- Kurt J. Lesker KJLC 354 Series Ion Gauge (contributed by Jack Mango (UC Berkeley))
+- Keysight DAQ970A/973A multimeter (via VISA interface)
+- SMC HRS012-AN-10-T chiller (via RS-232 port) (contributions by Jack Mango (UC Berkeley))
+- PurpleAir air quality sensor/particle counters (via web API)
+- Kurt J. Lesker KJLC 354 series ion pressure gauge (via RS-485 port) (contributed by Jack Mango (UC Berkeley))
 
 ## Preparation
 

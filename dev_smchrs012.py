@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 This module contains drivers for the SMC HRS012-AN-10-T chiller.
-It implements the simple communication protocol of the chiller over a serial port
+It implements the simple communication protocol of the chiller over a serial (RS-232) port
 to read out the temperature setpoint ('SV1') and the returning temperature ('PV1')
 of the cooling liquid.
 """
@@ -21,12 +21,12 @@ class Device(dev_generic.Device):
     def __init__(self, device):
         """
         Initialize device.
-        
+
         device : dict
             Configuration dict of the device to initialize.
         """
-        super(Device, self).__init__(device)        
-        try: 
+        super(Device, self).__init__(device)
+        try:
             self.connection = serial.Serial(
                 device["Address"], timeout=device["Timeout"],
                 **device.get('SerialConnectionParams', {}))
@@ -48,7 +48,7 @@ class Device(dev_generic.Device):
             raise LoggerError(f"Failed to query {self.device['Device']}")
         rsp = self.connection.readline()
         if rsp.decode()[3] != '\x06':
-            raise LoggerError(f"Didn't receive acknowledgement from {self.device['Device']}") 
+            raise LoggerError(f"Didn't receive acknowledgement from {self.device['Device']}")
         # Convert to degree Celsius
         return float(rsp[7:12]) / 10
 
