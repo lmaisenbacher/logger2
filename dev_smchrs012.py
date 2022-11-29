@@ -8,7 +8,6 @@ of the cooling liquid.
 
 import serial
 import logging
-import json
 
 import dev_generic
 
