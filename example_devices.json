@@ -147,40 +147,6 @@
         }
     },	
     {
-        "Device":"Kurt J. Lesker KJLC 354 ion pressure gauge",
-        "Model":"KJLC 354",
-        "Address":"/dev/ttyUSB0",
-        "SerialConnectionParams":
-        {
-            "baudrate":19200,
-            "bytesize":8,
-            "stopbits":1,
-            "parity":"N"
-        },
-        "DeviceSpecificParams":
-        {
-            "InternalAddress":"01"
-        },
-        "Timeout":1,
-        "ParallelReadout":true,
-        "tags":{},
-        "measurement":"pressure",
-        "Channels":
-        {
-            "PressureGauge1":
-            {   
-                "Type":"Pressure",
-                "Multiplier":1,
-                "field-key":"pressure",
-                "tags":
-                {
-                    "sensor":"PressureGauge1",
-                    "unit":"Torr"
-                }
-            }      
-        }        
-    },
-    {
         "Device":"Met One DR-528 handheld particle counter",
         "Model":"Met One DR-528",
         "Address":"COM3",
@@ -232,5 +198,79 @@
                 }
             }
         }
-    }	
+    },
+    {
+        "Device":"Ion gauge cryocooler test chamber",
+        "Model":"KJLC 354",
+        "Address":"COM5",
+        "SerialConnectionParams":
+        {
+            "baudrate":19200,
+            "bytesize":8,
+            "stopbits":1,
+            "parity":"N"
+        },
+        "DeviceSpecificParams":
+        {
+            "InternalAddress":"01"
+        },
+        "Timeout":1,
+        "ParallelReadout":true,
+        "tags":{},
+        "measurement":"vacuumgauge",
+        "Channels":
+        {
+            "pressure":
+            {
+                "Type":"Pressure",				
+                "field-key":"pressure",
+                "tags":
+                {
+                    "sensor":"Cryocooler test chamber",         					
+                    "unit":"Torr"
+                }
+            }
+        }
+    },
+    {
+        "Device":"Cryogenic temperature controller",
+        "Model":"SRS CTC100",
+        "Address":"COM6",
+        "SerialConnectionParams":
+        {
+            "baudrate":9600,
+            "bytesize":8,
+            "stopbits":1,
+            "parity":"N"
+        },
+        "Timeout":1,
+        "ParallelReadout":true,
+        "tags":{},
+        "measurement":"cryotemperature",
+        "Channels":
+        {
+            "temp4K":
+            {
+                "Type":"Temperature",
+                "field-key":"temperature",
+                "tags":
+                {
+                    "sensor":"4K heat exchanger",	
+					"CTC100SensorName":"D6120284",       
+                    "unit":"K"
+                }
+            },
+            "temp1K":
+            {
+                "Type":"Temperature",
+                "field-key":"temperature",
+                "tags":
+                {
+                    "sensor":"1K heat exchanger",	
+					"CTC100SensorName":"X173903",       
+                    "unit":"K"
+                }
+            }			
+        }
+    }
 ]

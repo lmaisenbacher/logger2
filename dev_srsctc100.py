@@ -1,16 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-This module contains drivers for the Kurt J. Lesker KJLC 354 series ion pressure gauge
-and the InstruTech IGM401 ion pressure gauge
-(InstruTech seems to be the original manufacturer).
-It implements the serial protocol of the gauge over a two-wire RS-485 port
-(not to be confused with a RS-232 port, which uses the same 9-pin sub-D connector)
-to read out the pressure in units of Torr.
-
-Note the pin assignment of the RS-485 port on the gauge:
-DATA- on pin 6, DATA+ on pin 9, and ground on pin 4.
-This might be different than the pin assignment of your RS-485 adapter
-(such as e.g. those from StarTech) and a custom cable might needs to be used.
+This module contains drivers for the Stanford Research Instruments CTC100
+cryogenic temperature controller.
 """
 
 import serial
@@ -42,8 +33,7 @@ class Device(dev_generic.Device):
 
     def query(self, command):
         """Query device with command `command` (str) and return response."""
-        internal_address = self.device["DeviceSpecificParams"]["InternalAddress"]
-        query = f'#{internal_address}{command}\r'.encode("ASCII")
+        query = f"{command}\n".encode("ASCII")
         n_write_bytes = self.connection.write(query)
         if n_write_bytes != len(query):
             raise LoggerError("Failed to write to device")
@@ -55,23 +45,13 @@ class Device(dev_generic.Device):
         if rsp == '':
             raise LoggerError(
                 "No response received")
-        if rsp.startswith("?"):
-            raise LoggerError(
-                f"Received an error response: '{rsp}'")
-        if not rsp.startswith(f"*{internal_address} "):
-            raise LoggerError(
-                f"Didn't receive correct acknowledgement (response received: '{rsp}')")
-        return rsp[4:]
+        if not rsp.endswith("\r\n"):
+            raise LoggerError("Response does not end with '\r\n' as expected")
+        return rsp.rstrip()
 
-    def read_pressure(self):
-        """Read pressure."""
-        # Check whether filament is powered up and gauge is reading
-        rsp = self.query("IGS")
-        if rsp.startswith("0"):
-            raise LoggerError(
-                "Filament is not powered up, no pressure reading available")
-        # Read pressure
-        rsp = self.query("RD")
+    def read_temperature(self, name):
+        """Read temperature of channel with name `name` (str)."""
+        rsp = self.query(f"{name}?")
         return float(rsp)
 
     def get_values(self):
@@ -79,8 +59,8 @@ class Device(dev_generic.Device):
         chans = self.device['Channels']
         readings = {}
         for channel_id, chan in chans.items():
-            if chan['Type'] in ['Pressure']:
-                value = self.read_pressure()
+            if chan['Type'] in ['Temperature']:
+                value = self.read_temperature(chan["tags"]["CTC100SensorName"])
                 readings[channel_id] = value
             else:
                 raise LoggerError(
