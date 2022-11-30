@@ -3,11 +3,11 @@
 This module contains drivers for the Kurt J. Lesker KJLC 354 series ion pressure gauge
 and the InstruTech IGM401 ion pressure gauge
 (InstruTech seems to be the original manufacturer).
-It implements the serial protocol of the gauge over a two-wire RS-485 port
-(not to be confused with a RS-232 port, which uses the same 9-pin sub-D connector)
+It uses the two-wire RS-485 interface of the gauge
+(not to be confused with a RS-232 interface, which uses the same 9-pin sub-D connector)
 to read out the pressure in units of Torr.
 
-Note the pin assignment of the RS-485 port on the gauge:
+Note the pin assignment of the RS-485 interface on the gauge:
 DATA- on pin 6, DATA+ on pin 9, and ground on pin 4.
 This might be different than the pin assignment of your RS-485 adapter
 (such as e.g. those from StarTech) and a custom cable might needs to be used.

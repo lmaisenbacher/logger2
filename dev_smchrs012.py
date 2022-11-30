@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 This module contains drivers for the SMC HRS012-AN-10-T chiller.
-It implements the simple communication protocol of the chiller over a serial (RS-232) port
+It implements the simple communication protocol of the chiller using its RS-232 interface
 to read out the temperature setpoint ('SV1') and the returning temperature ('PV1')
 of the cooling liquid.
 """
