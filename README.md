@@ -6,10 +6,11 @@ Maintaned by Lothar Maisenbacher (UC Berkeley), partly based on earlier software
 ## Supported devices
 
 - `Keysight DAQ973A`: Keysight DAQ970A/973A multimeter (via VISA interface)
-- `SMC HRS012-AN-10-T`: SMC HRS012-AN-10-T chiller (via RS-232 port) (contributions by Jack Mango (UC Berkeley))
+- `SMC HRS012-AN-10-T`: SMC HRS012-AN-10-T chiller (using RS-232 interface) (contributions by Jack Mango (UC Berkeley))
 - `PurpleAir`: PurpleAir air quality sensor/particle counters (via web API)
-- `KJLC 354`: Kurt J. Lesker KJLC 354 series ion pressure gauge (via RS-485 port) (contributed by Jack Mango (UC Berkeley))
-- `Met One DR-528`: Met One DR-528 handheld particle counter (via RS-232 port) (contributed by Jack Mango (UC Berkeley))
+- `KJLC 354`: Kurt J. Lesker KJLC 354 series ion pressure gauge (using RS-485 interface) (contributions by Jack Mango (UC Berkeley))
+- `Met One DR-528`: Met One DR-528 handheld particle counter (using RS-232 interface) (contributed by Jack Mango (UC Berkeley))
+- `SRS CTC100`: Stanford Research Instruments CTC100 cryogenic temperature controller (using USB interface)
 
 ## Preparation
 

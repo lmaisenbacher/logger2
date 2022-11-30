@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 This module contains drivers for the Met One DR-528 handheld particle counter.
-It implements a serial (RS-232) communication to read out particle counts for eight sizes,
+It uses its RS-232 interface to read out particle counts for eight sizes,
 air temperature, and relative humidity.
 """
 
