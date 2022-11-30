@@ -9,6 +9,7 @@ PyVISA = "*"
 influxdb-client = "*"
 numpy = "*"
 requests = "*"
+pymodbus = "*"
 
 [dev-packages]
 

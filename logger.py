@@ -23,6 +23,7 @@ import dev_purpleair
 import dev_kjlc354
 import dev_metonedr528
 import dev_srsctc100
+import dev_cryomechcpa1110
 
 logger = logging.getLogger()
 
@@ -64,6 +65,11 @@ def init_device(device):
     # (via USB/virtual RS-232 port)
     if device['Model'] == 'SRS CTC100':
         device_instance = dev_srsctc100.Device(device)
+
+    # Stanford Research Instruments CTC100 cryogenic temperature controller
+    # (via USB/virtual RS-232 port)
+    if device['Model'] == 'Cryomech CPA1110':
+        device_instance = dev_cryomechcpa1110.Device(device)
 
     if device_instance is None:
         msg = f'Unknown device model \'{device["Model"]}\''
