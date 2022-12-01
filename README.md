@@ -11,6 +11,7 @@ Maintaned by Lothar Maisenbacher (UC Berkeley), partly based on earlier software
 - `KJLC 354`: Kurt J. Lesker KJLC 354 series ion pressure gauge (using RS-485 interface) (contributions by Jack Mango (UC Berkeley))
 - `Met One DR-528`: Met One DR-528 handheld particle counter (using RS-232 interface) (contributed by Jack Mango (UC Berkeley))
 - `SRS CTC100`: Stanford Research Instruments CTC100 cryogenic temperature controller (using USB interface)
+- `Cryomech CPA1110`: Cryomech CPA1110 helium compressor (using Modbus TCP protocol over ethernet interface)
 
 ## Preparation
 

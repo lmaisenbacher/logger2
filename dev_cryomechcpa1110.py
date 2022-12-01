@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-This module contains drivers for the Cryomech CPA1110 helium compressor.
+This module contains drivers for the Cryomech CPA1110 helium compressor,
+using the Modbus TCP protocol over ethernet interface.
 """
 
 import logging

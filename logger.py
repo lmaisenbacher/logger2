@@ -62,12 +62,12 @@ def init_device(device):
         device_instance = dev_metonedr528.Device(device)
 
     # Stanford Research Instruments CTC100 cryogenic temperature controller
-    # (via USB/virtual RS-232 port)
+    # (via USB interface/virtual serial port)
     if device['Model'] == 'SRS CTC100':
         device_instance = dev_srsctc100.Device(device)
 
-    # Stanford Research Instruments CTC100 cryogenic temperature controller
-    # (via USB/virtual RS-232 port)
+    # Cryomech CPA1110 helium compressor
+    # (using Modbus TCP protocol over ethernet interface)
     if device['Model'] == 'Cryomech CPA1110':
         device_instance = dev_cryomechcpa1110.Device(device)
 

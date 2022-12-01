@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 This module contains drivers for the Stanford Research Instruments CTC100
-cryogenic temperature controller.
+cryogenic temperature controller using its USB interface,
+which implements a virtual serial port.
 """
 
 import serial
