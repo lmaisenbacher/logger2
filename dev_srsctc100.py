@@ -30,6 +30,7 @@ class Device(dev_generic.Device):
         except serial.SerialException:
             raise LoggerError(
                 f"Serial connection on port {device['Address']} couldn't be opened")
+        print(self.query("4KHeat.PID.Setpoint?"))
 
     def query(self, command):
         """Query device with command `command` (str) and return response."""
@@ -54,13 +55,37 @@ class Device(dev_generic.Device):
         rsp = self.query(f"{name}?")
         return float(rsp)
 
+    def read_pid_setpoint(self, name):
+        """Read PID temperature setpoint of channel with name `name` (str)."""
+        rsp = self.query(f"{name}.PID.Setpoint?")
+        return float(rsp)
+
+    def read_heater_power(self, name):
+        """Read heater power of channel with name `name` (str)."""
+        rsp = self.query(f"{name}?")
+        return float(rsp)
+
+    def query_custom_command(self, command):
+        """Send custom command `command` (str) and read response."""
+        rsp = self.query(f"{command}")
+        return float(rsp)
+
     def get_values(self):
         """Read channels."""
         chans = self.device['Channels']
         readings = {}
         for channel_id, chan in chans.items():
-            if chan['Type'] in ['Temperature']:
-                value = self.read_temperature(chan["tags"]["CTC100SensorName"])
+            if chan['Type'] == 'Temperature':
+                value = self.read_temperature(chan["tags"]["CTC100ChannelName"])
+                readings[channel_id] = value
+            elif chan['Type'] == 'PIDSetpoint':
+                value = self.read_pid_setpoint(chan["tags"]["CTC100ChannelName"])
+                readings[channel_id] = value
+            elif chan['Type'] == 'HeaterPower':
+                value = self.read_heater_power(chan["tags"]["CTC100ChannelName"])
+                readings[channel_id] = value
+            elif chan['Type'] == 'Custom':
+                value = self.query_custom_command(chan["tags"]["CTC100CustomCommand"])
                 readings[channel_id] = value
             else:
                 raise LoggerError(
