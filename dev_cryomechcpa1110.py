@@ -29,13 +29,11 @@ class Device(dev_generic.Device):
     def read_coolant_in_temperature(self):
         """Read coolant inlet temperature."""
         values = self.client.read_input_registers(40, 1, slave=self.device_id)
-        print(values.registers)
         return float(values.registers[0])/10
 
     def read_coolant_out_temperature(self):
         """Read coolant return temperature."""
         values = self.client.read_input_registers(41, 1, slave=self.device_id)
-        print(values.registers)
         return float(values.registers[0])/10
 
     def read_oil_temperature(self):
