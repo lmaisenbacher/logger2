@@ -31,7 +31,6 @@ class Device(dev_generic.Device):
         except serial.SerialException:
             raise LoggerError(
                 f"Serial connection on port {device['Address']} couldn't be opened")
-        print(self.query("4KHeat.PID.Setpoint?"))
 
     def query(self, command):
         """Query device with command `command` (str) and return response."""
