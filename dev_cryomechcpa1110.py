@@ -49,10 +49,12 @@ class Device(dev_generic.Device):
         value, which is accounted for here by diving by 10 and thus converting to float.
         """
         if not self.device_connected:
-            # Try to open connection
-            logger.error('Modbus connection is not open, trying to connect...')
-            self.connect()
-            # raise LoggerError("Modbus connection not open")
+            if self.device.get('KeepTryingToConnect', True):
+                # Try to open connection
+                logger.error('Modbus connection is not open, trying to connect...')
+                self.connect()
+            else:
+                raise LoggerError("Modbus connection not open")
         try:
             values = self.client.read_input_registers(register, 1, slave=self.device_id)
         except ModbusException as e:
