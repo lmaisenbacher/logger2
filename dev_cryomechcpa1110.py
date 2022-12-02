@@ -24,8 +24,16 @@ class Device(dev_generic.Device):
             Configuration dict of the device to initialize.
         """
         super(Device, self).__init__(device)
-        self.client = ModbusTcpClient(
-            device["Address"], timeout=device["Timeout"])
+        try:
+            self.client = ModbusTcpClient(
+                device["Address"], timeout=device["Timeout"])
+            self.client.connect()
+        except ModbusException as e:
+            raise LoggerError(
+                f"Modbus connection on port {device['Address']} couldn't be opened: '{e}'")
+        if not self.client.connected:
+            raise LoggerError(
+                f"Modbus connection on port {device['Address']} couldn't be opened")
         self.device_id = device["ModbusDeviceID"]
 
     def read_float_value(self, register):
@@ -38,6 +46,8 @@ class Device(dev_generic.Device):
             values = self.client.read_input_registers(register, 1, slave=self.device_id)
         except ModbusException as e:
             raise LoggerError(f"Encountered Modbus exception when trying to read register: '{e}'")
+        if values.isError():
+            raise LoggerError(f"Encountered Modbus exception when trying to read register")
         return float(values.registers[0])/10
 
     def read_coolant_in_temperature(self):
