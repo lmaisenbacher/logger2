@@ -23,6 +23,7 @@ class Device:
             **device
             }
         self.device_present = False
+        self.device_connected = False
         self.device = device
         self.visa_warning = False
         self.visa_resource = None

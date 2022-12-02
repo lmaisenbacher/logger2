@@ -25,6 +25,7 @@ class Device(dev_generic.Device):
         """
         super(Device, self).__init__(device)
         self.device_id = device["ModbusDeviceID"]
+        self.client = None
 
     def connect(self):
         """Connect to device."""
@@ -39,6 +40,7 @@ class Device(dev_generic.Device):
         if not self.client.connected:
             raise LoggerError(
                 f"Modbus connection on port {device['Address']} couldn't be opened")
+        self.device_connected = True
 
     def read_float_value(self, register):
         """
@@ -46,6 +48,8 @@ class Device(dev_generic.Device):
         The value read from the register is an integer corresponding to ten times the measurement
         value, which is accounted for here by diving by 10 and thus converting to float.
         """
+        if not self.device_connected:
+            raise LoggerError("Modbus connection not open")
         try:
             values = self.client.read_input_registers(register, 1, slave=self.device_id)
         except ModbusException as e:
@@ -81,7 +85,7 @@ class Device(dev_generic.Device):
     def set_compressor_state(self, state):
         """Switch compressor on (`state` is True) or off (`state` is False)."""
         value = 1 if state else 255
-        write = client.write_register(value, 1, slave=self.device_id)
+        write = self.client.write_register(value, 1, slave=self.device_id)
 
     def get_values(self):
         """Read channels."""

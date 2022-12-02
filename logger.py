@@ -76,6 +76,11 @@ def init_device(device):
         logger.error(msg)
         raise LoggerError(msg)
 
+    try:
+        device_instance.connect()
+    except LoggerError as err:
+        logger.error('Could not connect. Error: %s', err.value)
+
     return device_instance
 
 def _setup_logging():
