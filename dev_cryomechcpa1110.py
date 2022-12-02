@@ -74,6 +74,11 @@ class Device(dev_generic.Device):
         """Read high He pressure."""
         return self.read_float_value(46)
 
+    def set_compressor_state(self, state):
+        """Switch compressor on (`state` is True) or off (`state` is False)."""
+        value = 1 if state else 255
+        write = client.write_register(value, 1, slave=self.device_id)
+
     def get_values(self):
         """Read channels."""
         chans = self.device['Channels']
