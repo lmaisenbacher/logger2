@@ -6,6 +6,7 @@ using the Modbus TCP protocol over ethernet interface.
 
 import logging
 from pymodbus.client import ModbusTcpClient
+from pymodbus.exceptions import ModbusException
 
 import dev_generic
 
@@ -27,35 +28,41 @@ class Device(dev_generic.Device):
             device["Address"], timeout=device["Timeout"])
         self.device_id = device["ModbusDeviceID"]
 
+    def read_float_value(self, register):
+        """
+        Read float value from register `register` (int).
+        The value read from the register is an integer corresponding to ten times the measurement
+        value, which is accounted for here by diving by 10 and thus converting to float.
+        """
+        try:
+            values = self.client.read_input_registers(register, 1, slave=self.device_id)
+        except ModbusException as e:
+            raise LoggerError(f"Encountered Modbus exception when trying to read register: '{e}'")
+        return float(values.registers[0])/10
+
     def read_coolant_in_temperature(self):
         """Read coolant inlet temperature."""
-        values = self.client.read_input_registers(40, 1, slave=self.device_id)
-        return float(values.registers[0])/10
+        return self.read_float_value(40)
 
     def read_coolant_out_temperature(self):
         """Read coolant return temperature."""
-        values = self.client.read_input_registers(41, 1, slave=self.device_id)
-        return float(values.registers[0])/10
+        return self.read_float_value(41)
 
     def read_oil_temperature(self):
         """Read oil temperature."""
-        values = self.client.read_input_registers(42, 1, slave=self.device_id)
-        return float(values.registers[0])/10
+        return self.read_float_value(42)
 
     def read_he_temperature(self):
         """Read helium temperature."""
-        values = self.client.read_input_registers(43, 1, slave=self.device_id)
-        return float(values.registers[0])/10
+        return self.read_float_value(43)
 
     def read_low_pressure(self):
         """Read low He pressure."""
-        values = self.client.read_input_registers(44, 1, slave=self.device_id)
-        return float(values.registers[0])/10
+        return self.read_float_value(44)
 
     def read_high_pressure(self):
         """Read high He pressure."""
-        values = self.client.read_input_registers(46, 1, slave=self.device_id)
-        return float(values.registers[0])/10
+        return self.read_float_value(46)
 
     def get_values(self):
         """Read channels."""
