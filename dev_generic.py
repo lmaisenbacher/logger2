@@ -14,7 +14,7 @@ from defs import LoggerError
 logger = logging.getLogger()
 
 class Device:
-    
+
     def __init__(self, device):
         """Init device."""
         # Add default values
@@ -22,10 +22,14 @@ class Device:
             'DeviceSpecificParams': {},
             **device
             }
-        self.device_present = False        
+        self.device_present = False
         self.device = device
-        self.visa_warning = False        
+        self.visa_warning = False
         self.visa_resource = None
+
+    def connect(self):
+        """Connect to device."""
+        None
 
     def to_float(self, value):
         """Convert `value` to float."""
@@ -50,7 +54,7 @@ class Device:
     # def closeConn(self):
 
     #     None
-        
+
     def init_visa(self):
         """Initialize VISA connection."""
         # Initialize PyVISA to talk to VISA devices
