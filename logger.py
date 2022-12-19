@@ -15,6 +15,7 @@ from defs import LoggerError
 
 import influxdb_client
 from influxdb_client.client.write_api import SYNCHRONOUS
+from influxdb_client.client.exceptions import InfluxDBError
 
 # Device modules
 import dev_keysightdaq973a
@@ -119,6 +120,14 @@ if __name__ == "__main__":
     if not device_config_path.is_absolute():
         device_config_path = config_path.parent.joinpath(device_config_path)
 
+    # Set up database connection
+    client = influxdb_client.InfluxDBClient(
+       url=DB_URL,
+       token=DB_TOKEN,
+       org=DB_ORG
+    )
+    write_api = client.write_api(write_options=SYNCHRONOUS)
+
     def write_value(device, channel_id, value):
         """
         Write a new measured value to the InfluxDB database.
@@ -146,16 +155,11 @@ if __name__ == "__main__":
             }
         ]
         logger.info("Channel %s: %s", channel_id, value)
-        write_api.write(
-            DB_BUCKET, DB_ORG, json_body)
-
-    # Set up database connection
-    client = influxdb_client.InfluxDBClient(
-       url=DB_URL,
-       token=DB_TOKEN,
-       org=DB_ORG
-    )
-    write_api = client.write_api(write_options=SYNCHRONOUS)
+        try:
+            write_api.write(
+                DB_BUCKET, DB_ORG, json_body)
+        except InfluxDBError as e:
+            logger.warning(f'Could not write to database: {e}')
 
     logger.info('Reading device configuration from file \'%s\'', device_config_path)
     try:
