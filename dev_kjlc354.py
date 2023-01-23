@@ -71,7 +71,7 @@ class Device(dev_generic.Device):
             raise LoggerError(
                 "Filament is not powered up, no pressure reading available")
         # Read pressure
-        rsp = self.query("RD")
+        rsp = self.query("RDS")
         return float(rsp)
 
     def get_values(self):
