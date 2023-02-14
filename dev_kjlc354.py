@@ -1,8 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-This module contains drivers for the Kurt J. Lesker KJLC 354 series ion pressure gauge
-and the InstruTech IGM401 ion pressure gauge
+This module contains drivers for the Kurt J. Lesker KJLC 354 and KJLC 352 series ion pressure gauge
+and the InstruTech IGM401 and IGM402 ion pressure gauge
 (InstruTech seems to be the original manufacturer).
+The KJLC352 and IGM402 gauges are combined gauges and have to capability to additionally read out
+(two, but only the first is used here) Pirani gauges. To read out this pressure values when the ion
+gauge is off, set `ReadCombinedPressure` in `DeviceSpecificParams` to True in the device
+configuration file (but to False when using a KJLC 354 or IGM401 gauge). By default,
+`ReadCombinedPressure` is set to False.
+Some models of the gauges support reading out the status of the filament, which can activated here
+by setting `ConfirmFilamentIsOn` in `DeviceSpecificParams` to True. If the filament is not on,
+the pressure is not read out in this case. This will, however, also prevent a valid pressure
+reading from the Pirani gauge of a combined gauge if its filament is off.
+On the other hand, some older gauges do not support this feature, and it should be switched off.
+By default, `ConfirmFilamentIsOn` is set to False.
 It uses the two-wire RS-485 interface of the gauge
 (not to be confused with a RS-232 interface, which uses the same 9-pin sub-D connector)
 to read out the pressure in units of Torr.
@@ -65,13 +76,17 @@ class Device(dev_generic.Device):
 
     def read_pressure(self):
         """Read pressure."""
-        # Check whether filament is powered up and gauge is reading
-        rsp = self.query("IGS")
-        if rsp.startswith("0"):
-            raise LoggerError(
-                "Filament is not powered up, no pressure reading available")
+        if self.device.get('ConfirmFilamentIsOn', False):
+            # Check whether filament is powered up and gauge is reading
+            rsp = self.query("IGS")
+            if rsp.startswith("0"):
+                raise LoggerError(
+                    "Filament is not powered up, no pressure reading available")
         # Read pressure
-        rsp = self.query("RDS")
+        if self.device.get('ReadCombinedPressure', False):
+            rsp = self.query("RDS")
+        else:
+            rsp = self.query("RD")
         return float(rsp)
 
     def get_values(self):

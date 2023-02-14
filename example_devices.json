@@ -200,7 +200,7 @@
         }
     },
     {
-        "Device":"Ion gauge cryocooler test chamber",
+        "Device":"KJLC 354 ion gauge",
         "Model":"KJLC 354",
         "Address":"COM5",
         "SerialConnectionParams":
@@ -212,7 +212,9 @@
         },
         "DeviceSpecificParams":
         {
-            "InternalAddress":"01"
+            "InternalAddress":"01",
+			"ConfirmFilamentIsOn":true,
+			"ReadCombinedPressure":false
         },
         "Timeout":1,
         "ParallelReadout":true,
@@ -226,12 +228,47 @@
                 "field-key":"pressure",
                 "tags":
                 {
-                    "sensor":"Cryocooler test chamber",         					
+                    "sensor":"KJLC 354 ion gauge",         					
                     "unit":"Torr"
                 }
             }
         }
     },
+    {
+        "Device":"KJLC 352 ion and Pirani gauge",
+        "Model":"KJLC 354",
+        "Address":"COM5",
+        "SerialConnectionParams":
+        {
+            "baudrate":19200,
+            "bytesize":8,
+            "stopbits":1,
+            "parity":"N"
+        },
+        "DeviceSpecificParams":
+        {
+            "InternalAddress":"01",
+			"ConfirmFilamentIsOn":false,
+			"ReadCombinedPressure":true
+        },
+        "Timeout":1,
+        "ParallelReadout":true,
+        "tags":{},
+        "measurement":"vacuumgauge",
+        "Channels":
+        {
+            "pressure":
+            {
+                "Type":"Pressure",				
+                "field-key":"pressure",
+                "tags":
+                {
+                    "sensor":"KJLC 352 ion and Pirani gauge",
+                    "unit":"Torr"
+                }
+            }
+        }
+    }	
     {
         "Device":"Cryogenic temperature controller",
         "Model":"SRS CTC100",
