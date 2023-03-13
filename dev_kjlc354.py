@@ -60,7 +60,7 @@ class Device(dev_generic.Device):
             raise LoggerError("Failed to write to device")
         rsp = self.connection.readline()
         try:
-            rsp = rsp.decode()
+            rsp = rsp.decode(errors='ignore')
         except UnicodeDecodeError:
             raise LoggerError(f"Error in decoding response ('{rsp}') received")
         if rsp == '':
