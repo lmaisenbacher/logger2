@@ -37,7 +37,7 @@ class Device(dev_generic.Device):
         """Generate serial query to request value for command `command` (str)."""
         return (
             f'\x02{self.device["DeviceSpecificParams"]["InternalAddress"]}R{command}\x03'
-            .encode("ASCII"))
+            .encode(encoding="ASCII"))
 
     def read_temperature(self, meas_type):
         """Read temperature of type `meas_type` (str), either 'SV1' or 'PV1'."""
@@ -46,7 +46,7 @@ class Device(dev_generic.Device):
         if n_write_bytes != len(query):
             raise LoggerError(f"Failed to query {self.device['Device']}")
         rsp = self.connection.readline()
-        if rsp.decode()[3] != '\x06':
+        if rsp.decode(encoding="ASCII")[3] != '\x06':
             raise LoggerError(f"Didn't receive acknowledgement from {self.device['Device']}")
         # Convert to degree Celsius
         return float(rsp[7:12]) / 10

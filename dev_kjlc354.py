@@ -57,13 +57,13 @@ class Device(dev_generic.Device):
     def query(self, command):
         """Query device with command `command` (str) and return response."""
         internal_address = self.device["DeviceSpecificParams"]["InternalAddress"]
-        query = f'#{internal_address}{command}\r'.encode("ASCII")
+        query = f'#{internal_address}{command}\r'.encode(encoding="ASCII")
         n_write_bytes = self.connection.write(query)
         if n_write_bytes != len(query):
             raise LoggerError("Failed to write to device")
         rsp = self.connection.readline()
         try:
-            rsp = rsp.decode("ASCII")
+            rsp = rsp.decode(encoding="ASCII")
         except UnicodeDecodeError:
             raise LoggerError(f"Error in decoding response ('{rsp}') received")
         if rsp == '':
