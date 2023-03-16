@@ -49,10 +49,7 @@
         "Model":"Keysight DAQ973A",
         "Address":"TCPIP0::K-DAQ973A-0296.local::inst0::INSTR",
         "VISAIDN":"Keysight Technologies,DAQ973A,MY59000296,A.02.02-01.00-02.01-00.02-02.00-03-03",
-        "DeviceSpecificParams":
-        {
-            "NPLC":10
-        },        
+        "DeviceSpecificParams":{},        
         "ParallelReadout":true,
         "tags":{},
         "measurement":"temperature",
@@ -63,64 +60,35 @@
             {   
                 "DeviceChannel":101,
                 "Type":"DCV",
+				"DeviceSpecificParams":
+				{
+					"NPLC":10,
+					"Range":5
+				},				
                 "Multiplier":1,
-                "field-key":"value",
+                "field-key":"voltage",
                 "tags":
                 {
                     "sensor":"101",
                     "unit":"V"
                 }
-            },
+            },			
             "102":
             {   
                 "DeviceChannel":102,
-                "Type":"DCV",
+                "Type":"ACV",
+				"DeviceSpecificParams":
+				{
+					"Range":0.1
+				},				
                 "Multiplier":1,
-                "field-key":"value",
+                "field-key":"voltage",
                 "tags":
                 {
-                    "sensor":"102",
+                    "sensor":"Test AC",
                     "unit":"V"
                 }
-            }            
-        }
-    },
-    {
-        "Device":"Keysight DAQ973A multimeter 1",
-        "Model":"Keysight DAQ973A",
-        "Address":"TCPIP0::K-DAQ973A-0296.local::inst0::INSTR",
-        "VISAIDN":"Keysight Technologies,DAQ973A,MY59000296,A.02.02-01.00-02.01-00.02-02.00-03-03",
-        "AveragingTime":0.001,
-        "ParallelReadout":true,
-        "tags":{},
-        "measurement":"temperature",
-        "Timeout":60000,        
-        "Channels":
-        {
-            "103":
-            {   
-                "DeviceChannel":103,
-                "Type":"DCV",
-                "Multiplier":1,
-                "field-key":"value",
-                "tags":
-                {
-                    "sensor":"103",
-                    "unit":"V"
-                }
-            },
-            "104":
-            {   
-                "DeviceChannel":104,
-                "Type":"DCV",
-                "Multiplier":1,
-                "field-key":"value",
-                "tags":
-                {
-                    "sensor":"104",
-                    "unit":"V"
-                }
-            }            
+            } 
         }
     },
     {
