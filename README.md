@@ -1,7 +1,7 @@
 # logger2
 A logger that reads out various devices and writes the output to an InfluxDB (>2.0).
 
-Maintaned by Lothar Maisenbacher (UC Berkeley), partly based on earlier software from Fabian Schmid and me at Max Planck Institute of Quantum Optics (MPQ).
+Maintained by Lothar Maisenbacher (UC Berkeley), partly based on earlier software from Fabian Schmid and me at Max Planck Institute of Quantum Optics (MPQ).
 
 ## Supported devices
 
