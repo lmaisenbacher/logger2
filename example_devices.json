@@ -204,7 +204,7 @@
     },
     {
         "Device":"KJLC 352 ion and Pirani gauge",
-        "Model":"KJLC 354",
+        "Model":"KJLC 352",
         "Address":"COM5",
         "SerialConnectionParams":
         {
@@ -236,7 +236,7 @@
                 }
             }
         }
-    }	
+    },	
     {
         "Device":"Cryogenic temperature controller",
         "Model":"SRS CTC100",
@@ -276,6 +276,83 @@
                     "unit":"K"
                 }
             }			
+        }
+    },
+    {
+        "Device":"KJLC XCG  Capacitance Gauge",
+        "Model":"KJLC XCG-BT-FB-1",
+        "Timeout":1,
+        "ParallelReadout":true,
+        "tags":{},
+        "measurement":"pressuregauge",
+        "Channels":
+        {
+            "Sensor1":
+            {   
+                "I2CAddress": "0x48",
+                "Pins":
+                    {  
+                        "Signal": 0,
+                        "Reference": 1
+                    },
+                "Type":"Pressure",
+                "Multiplier":250,
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"sensor",
+                    "unit":"Torr"
+                }
+            },
+            "Sensor2":
+            {   
+                "I2CAddress": "0x48",
+                "Type":"Pressure",
+                "Multiplier":250,
+                "field-key":"value",
+                "Pins":
+                    {  
+                        "Signal": 2,
+                        "Reference": 3
+                    },
+                "tags":
+                {
+                    "sensor":"sensor",
+                    "unit":"Torr"
+                }
+            },"Sensor3":
+            {   
+                "I2CAddress": "0x49",
+                "Type":"Pressure",
+                "Multiplier":250,
+                "Pins":
+                    {  
+                        "Signal": 0,
+                        "Reference": 1
+                    },
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"sensor",
+                    "unit":"Torr"
+                }
+            },"Sensor4":
+            {   
+                "I2CAddress": "0x49",
+                "Type":"Pressure",
+                "Multiplier":250,
+                "Pins":
+                    {  
+                        "Signal": 0,
+                        "Reference": 1
+                    },
+                "field-key":"value",
+                "tags":
+                {
+                    "sensor":"sensor",
+                    "unit":"Torr"
+                }
+            }       
         }
     }
 ]

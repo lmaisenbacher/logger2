@@ -29,28 +29,34 @@ class Device(dev_generic.Device):
         """
         super(Device, self).__init__(device)
         try:
-            self.i2c = busio.I2C(board.SCL, board.SDA)
-            self.ads = ADS.ADS1015(self.i2c)
-            self.chan = AnalogIn(self.ads, ADS.P0)
+            self.ads = {}
+            self.channels =self.device["Channels"]    
+            for name, info in self.channels:
+                if info["I2CAddress"] not in self.ads:
+                    self.ads[info["I2CAddress"]] = ADS.ADS1115(busio.I2C(), address=int(info["I2CAddress"], 16), data_rate=860)
+                info["ChanObj"] = ({name: AnalogIn(self.ads["I2CAddress"], info["Pins"]["Signal"], info["Pins"]["Reference"])})         
         except os.OSError:
             raise LoggerError(
                 f"I2C port for {device['Address']} couldn't be opened")
 
 
-    def read_pressure(self, scaling=250):
+    def read_pressure(self, chan_obj, scaling):
         """Read pressure."""
-        return self.chan.voltage * scaling
+        return chan_obj.voltage * scaling
 
     def get_values(self):
         """Read channels."""
-        chans = self.device['Channels']
         readings = {}
-        for channel_id, chan in chans.items():
-            if chan['Type'] in ['Pressure']:
-                value = self.read_pressure()
-                readings[channel_id] = value
+        for name, info in self.channels:
+            if info['Type'] in ['Pressure']:
+                try:
+                    value = self.read_pressure(info['ChanObj'], info['Scaling'])
+                    readings[name] = value
+                except os.OSError:
+                    raise LoggerError(
+                        f"I2C port ({info['I2CAddress']}) for {name} couldn't be opened")
             else:
                 raise LoggerError(
-                    f'Unknown channel type \'{chan["Type"]}\' for channel \'{channel_id}\''
+                    f'Unknown channel type \'{info["Type"]}\' for channel \'{name}\''
                     +f' of device \'{self.device["Device"]}\'')
         return readings
