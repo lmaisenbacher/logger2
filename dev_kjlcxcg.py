@@ -1,13 +1,14 @@
+
 # -*- coding: utf-8 -*-
 """
 Write a docstring here
 """
 
 import logging
-import os
-import adafruit_ads1x15.ads1015 as ADS
+import board
+import busio
+import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
-from adafruit_extended_bus import ExtendedI2C as I2C
 
 
 import dev_generic
@@ -28,33 +29,33 @@ class Device(dev_generic.Device):
         super(Device, self).__init__(device)
         try:
             self.ads = {}
-            self.channels =self.device["Channels"]    
-            for name, info in self.channels:
-                if info["I2CAddress"] not in self.ads:
-                    self.ads[info["I2CAddress"]] = ADS.ADS1115(I2C(), address=int(info["I2CAddress"], 16), data_rate=860)
-                info["ChanObj"] = ({name: AnalogIn(self.ads["I2CAddress"], info["Pins"]["Signal"], info["Pins"]["Reference"])})         
-        except os.OSError:
+            self.channels = self.device["Channels"]
+            for channel_id, channel in self.channels.items():
+                if channel["I2CAddress"] not in self.ads.keys():
+                    self.ads[channel["I2CAddress"]] = ADS.ADS1115(busio.I2C(board.SCL, board.SDA), address=int(channel["I2CAddress"], 16), data_rate=860)
+                channel["ChanObj"] = AnalogIn(self.ads[channel["I2CAddress"]], channel["Pins"]["Signal"], channel["Pins"]["Reference"])
+        except OSError:
             raise LoggerError(
                 f"I2C port for {device['Address']} couldn't be opened")
 
 
-    def read_pressure(self, chan_obj, scaling):
+    def read_pressure(self, chan_obj):
         """Read pressure."""
-        return chan_obj.voltage * scaling
+        return chan_obj.voltage
 
     def get_values(self):
         """Read channels."""
         readings = {}
-        for name, info in self.channels:
-            if info['Type'] in ['Pressure']:
+        for channel_id, channel in self.channels.items():
+            if channel['Type'] in ['Pressure']:
                 try:
-                    value = self.read_pressure(info['ChanObj'], info['Scaling'])
-                    readings[name] = value
-                except os.OSError:
+                    value = self.read_pressure(channel['ChanObj'])
+                    readings[channel_id] = value
+                except OSError:
                     raise LoggerError(
-                        f"I2C port ({info['I2CAddress']}) for {name} couldn't be opened")
+                        f"I2C port ({channel['I2CAddress']}) for {channel_id} couldn't be opened")
             else:
                 raise LoggerError(
-                    f'Unknown channel type \'{info["Type"]}\' for channel \'{name}\''
+                    f'Unknown channel type \'{channel["Type"]}\' for channel \'{name}\''
                     +f' of device \'{self.device["Device"]}\'')
         return readings
