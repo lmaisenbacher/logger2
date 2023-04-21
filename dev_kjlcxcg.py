@@ -28,12 +28,10 @@ class Device(dev_generic.Device):
         """
         super(Device, self).__init__(device)
         try:
-            self.ads = {}
             self.channels = self.device["Channels"]
             for channel_id, channel in self.channels.items():
-                if channel["I2CAddress"] not in self.ads.keys():
-                    self.ads[channel["I2CAddress"]] = ADS.ADS1115(busio.I2C(board.SCL, board.SDA), address=int(channel["I2CAddress"], 16), data_rate=860)
-                channel["ChanObj"] = AnalogIn(self.ads[channel["I2CAddress"]], channel["Pins"]["Signal"], channel["Pins"]["Reference"])
+                analog_channel = ADS.ADS1115(busio.I2C(board.SCL, board.SDA), address=int(channel["I2CAddress"], 16))
+                channel["ChanObj"] = AnalogIn(analog_channel, channel["Pins"]["Signal"], channel["Pins"]["Reference"])
         except OSError:
             raise LoggerError(
                 f"I2C port for {device['Address']} couldn't be opened")
