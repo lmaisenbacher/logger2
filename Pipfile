@@ -12,6 +12,9 @@ requests = "*"
 pymodbus = "*"
 adafruit-circuitpython-ads1x15 = "*"
 adafruit-circuitpython-lis3dh = "*"
+PIL = "*"
+adafruit_ssd1306 = "*"
+
 "RPi.GPIO" = "*"
 
 [dev-packages]

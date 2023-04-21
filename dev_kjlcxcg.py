@@ -9,6 +9,8 @@ import board
 import busio
 import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
+from PIL import Image, ImageDraw, ImageFont
+import adafruit_ssd1306
 
 
 import dev_generic
@@ -56,7 +58,7 @@ class Device(dev_generic.Device):
                         f"I2C port ({channel['I2CAddress']}) for {channel_id} couldn't be opened")
             else:
                 raise LoggerError(
-                    f'Unknown channel type \'{channel["Type"]}\' for channel \'{name}\''
+                    f'Unknown channel type \'{channel["Type"]}\' for channel \'{channel_id}\''
                     +f' of device \'{self.device["Device"]}\'')
         return readings
 
