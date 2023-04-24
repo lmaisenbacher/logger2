@@ -11,7 +11,7 @@ import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 from PIL import Image, ImageDraw, ImageFont
 import adafruit_ssd1306
-
+import digitalio
 
 import dev_generic
 
@@ -72,7 +72,7 @@ class Device(dev_generic.Device):
         """Establish a connection to the display for later use and add labels for measurements."""
         self.display = adafruit_ssd1306.SSD1306_I2C(128, 64, board.I2C(), addr=0x3D, reset=digitalio.DigitalInOut(board.D4))
         self.clear_display()
-        self.image = Image.new("1", (self.dispaly.width, self.display.height))
+        self.image = Image.new("1", (self.display.width, self.display.height))
         self.draw = ImageDraw.Draw(self.image)
         self.font = ImageFont.load_default()
         for i, channel_id in enumerate(self.channels.keys()):
@@ -95,9 +95,11 @@ class Device(dev_generic.Device):
         """
         text = f"{value} Torr"
         self.draw.text(
-            (self.display // 2, channel_num * self.height // 4),
+            (self.display.width // 2, channel_num * self.display.height // 4),
             text,
             font=self.font,
             fill=255,
         )
+        self.display.image(self.image)
+        self.display.show()
         return
