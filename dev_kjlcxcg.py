@@ -75,10 +75,10 @@ class Device(dev_generic.Device):
         self.image = Image.new("1", (self.display.width, self.display.height))
         self.draw = ImageDraw.Draw(self.image)
         self.font = ImageFont.load_default()
-        for i, channel_id in enumerate(self.channels.keys()):
+        for channel_num, channel_id in enumerate(self.channels.keys()):
             text = f"{channel_id}:"
             self.draw.text(
-            (0, i * self.display.width // 4),
+            (0, channel_num * self.display.width // 4),
             text,
             font=self.font,
             fill=255,
@@ -93,7 +93,7 @@ class Device(dev_generic.Device):
             channel_num : int
                 Channel number based on order in channel.keys().
         """
-        text = f"{value} Torr"
+        text = f"{value:.3f} Torr"
         self.draw.text(
             (self.display.width // 2, channel_num * self.display.height // 4),
             text,
