@@ -1,8 +1,16 @@
-""" This module contains drivers for the HighFinesse WS Ultimate 2 MC wavemeter."""
+"""
+This module contains drivers for HighFinesse wavemeters.
+Tested with models WS Ultimate 2 MC (at MPQ) and WS/7 (at UC Berkeley).
+
+Originally written by Fabian Schmid for the He+ project at MPQ.
+Adapted by Lothar Maisenbacher/UC Berkeley.
+"""
 import logging
 import ctypes
 
-LOG = logging.getLogger(__name__)
+from defs import LoggerError
+
+LOG = logging.getLogger()
 
 # Constants for the wavelength meter library
 # pylint: disable=invalid-name
@@ -55,7 +63,9 @@ class Wavemeter():
         try:
             self.wlm_lib = ctypes.WinDLL(library_path)
         except OSError as err:
-            LOG.error("Could not open HighFinesse Wavelength Meter library. Error: %s", str(err))
+            msg = "Could not open HighFinesse Wavelength Meter library. Error: %s", str(err)
+            LOG.error(msg)
+            raise LoggerError(msg)
         else:
             self.wlm_lib.GetFrequencyNum.restype = ctypes.c_double
             self.wlm_lib.GetWavelengthNum.restype = ctypes.c_double
@@ -64,8 +74,9 @@ class Wavemeter():
 
             retval = self.wlm_lib.Instantiate(cInstResetCalc, 0, 0, 0)
             if retval == 0:
-                LOG.error("Could not instantiate wavelength meter.")
-                return
+                msg = "Could not instantiate wavelength meter. Is the software running?"
+                LOG.error(msg)
+                raise LoggerError(msg)
 
             self.device_present = True
 
@@ -84,7 +95,7 @@ class Wavemeter():
             return
         retval = self.wlm_lib.SetPIDCourseNum(1, str(setpoint).encode())
         if retval != 0:
-            LOG.error("Coult not set PID setpoint. Error: %s", SET_ERRORS[retval])
+            LOG.error("Could not set PID setpoint. Error: %s", SET_ERRORS[retval])
 
     def get_pid_setpoint(self):
         """Return the current PID setpoint.
@@ -109,7 +120,7 @@ class Wavemeter():
 
         retval = self.wlm_lib.SetDeviationMode(ctypes.c_bool(status))
         if retval != 0:
-            LOG.error("Coult not set PID status. Error: %s", SET_ERRORS[retval])
+            LOG.error("Could not set PID status. Error: %s", SET_ERRORS[retval])
 
     def set_automatic_exposure(self, status):
         """Enable or disable automatic exposure.
@@ -122,7 +133,7 @@ class Wavemeter():
             return
         retval = self.wlm_lib.SetExposureMode(status)
         if retval != 0:
-            LOG.error("Coult not set automatic exposure. Error: %s", SET_ERRORS[retval])
+            LOG.error("Could not set automatic exposure. Error: %s", SET_ERRORS[retval])
 
     def set_exposure_1(self, exposure):
         """Set the exposure of the first sensor.
@@ -135,7 +146,7 @@ class Wavemeter():
             return
         retval = self.wlm_lib.SetExposureNum(1, 1, exposure)
         if retval != 0:
-            LOG.error("Coult not set first sensor exposure. Error: %s", SET_ERRORS[retval])
+            LOG.error("Could not set first sensor exposure. Error: %s", SET_ERRORS[retval])
 
     def set_exposure_2(self, exposure):
         """Set the exposure of the second sensor.
@@ -148,7 +159,7 @@ class Wavemeter():
             return
         retval = self.wlm_lib.SetExposureNum(1, 2, exposure)
         if retval != 0:
-            LOG.error("Coult not set second sensor exposure. Error: %s", SET_ERRORS[retval])
+            LOG.error("Could not set second sensor exposure. Error: %s", SET_ERRORS[retval])
 
     def get_pid_output_voltage(self):
         """Return the current PID output voltage.

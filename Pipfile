@@ -10,14 +10,7 @@ influxdb-client = "*"
 numpy = "*"
 requests = "*"
 pymodbus = "*"
-adafruit-circuitpython-ads1x15 = "*"
-Adafruit-Blinka = "*"
-adafruit-circuitpython-lis3dh = "*"
-Pillow = "==8.2.0"
-adafruit-circuitpython-ssd1306 = "*"
 
-
-"RPi.GPIO" = "*"
 
 [dev-packages]
 

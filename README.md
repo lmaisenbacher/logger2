@@ -12,6 +12,7 @@ Maintained by Lothar Maisenbacher (UC Berkeley), partly based on earlier softwar
 - `Met One DR-528`: Met One DR-528 handheld particle counter (using RS-232 interface) (contributed by Jack Mango (UC Berkeley))
 - `SRS CTC100`: Stanford Research Instruments CTC100 cryogenic temperature controller (using USB interface)
 - `Cryomech CPA1110`: Cryomech CPA1110 helium compressor (using Modbus TCP protocol over ethernet interface)
+- `HighFinesse`: HighFinesse wavemeters (tested with models WS Ultimate 2 MC and WS/7) (through Windows DLL API communicating with wavemeter software)
 
 ## Preparation
 

@@ -25,7 +25,7 @@ import dev_kjlc354
 import dev_metonedr528
 import dev_srsctc100
 import dev_cryomechcpa1110
-import dev_kjlcxcg
+import dev_highfinesse
 
 logger = logging.getLogger()
 
@@ -72,10 +72,11 @@ def init_device(device):
     # (using Modbus TCP protocol over ethernet interface)
     if device['Model'] == 'Cryomech CPA1110':
         device_instance = dev_cryomechcpa1110.Device(device)
-    # KJLC XCG Capacitance gague
-    # (via I2C Adafruit ADS1115 ADC)
-    if device['Model'] == 'KJLC XCG-BT-FB-1':
-        device_instance = dev_kjlcxcg.Device(device)
+
+    # HighFinesse wavemeter
+    # (using Windows DLL API)
+    if device['Model'] == 'HighFinesse':
+        device_instance = dev_highfinesse.Device(device)
 
     if device_instance is None:
         msg = f'Unknown device model \'{device["Model"]}\''
@@ -187,7 +188,7 @@ if __name__ == "__main__":
                         'Reading device: \'%s\' at \'%s\'', device['Device'], device['Address'])
                 else:
                     logger.info('Reading device: \'%s\'', device['Device'])
-                if device["ParallelReadout"]:
+                if device.get('ParallelReadout', True):
                     try:
                         readings = instance.get_values()
                     except LoggerError as err:
