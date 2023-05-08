@@ -354,5 +354,24 @@
                 }
             }       
         }
-    }
+    },
+    {
+        "Device":"HighFinesse WS/7 wavemeter",
+        "Model":"HighFinesse",
+        "tags":{},
+        "measurement":"wavemeter",
+        "Timeout":10,        
+        "Channels":
+        {
+            "Frequency":
+            {   
+				"Type":"Frequency",
+                "field-key":"frequency",
+                "tags":
+                {
+                    "unit":"THz"
+                }
+            }    
+        }
+    }	
 ]
