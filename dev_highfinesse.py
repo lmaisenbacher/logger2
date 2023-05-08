@@ -6,6 +6,7 @@ which are interfaced through a Windows DLL API.
 The wavemeter software must be running on the same PC.
 """
 
+import numpy as np
 import logging
 
 import dev_generic
@@ -29,7 +30,9 @@ class Device(dev_generic.Device):
 
     def get_frequency(self):
         """Read current laser frequency."""
-        return self.wavemeter.get_frequency()
+        freq = self.wavemeter.get_frequency()
+        freq = np.nan if freq < 0 else freq
+        return freq
 
     def get_values(self):
         """Read channels."""
