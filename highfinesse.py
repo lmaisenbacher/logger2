@@ -195,11 +195,12 @@ class Wavemeter():
     def get_frequency(self):
         """Return the current laser frequency.
 
-        :returns: the current frequency in THz or -1 if the device is not present
+        :returns: the current frequency in THz, or None if the device is not present,
+                  or an integer error code (<= 0) for API errors (see manual)
         """
         if not self.device_present:
             LOG.warning("get_frequency() called for non-present HighFinesse wavemeter.")
-            return -1
+            return None
         return self.wlm_lib.GetFrequencyNum(1, ctypes.c_double(0))
 
     def get_automatic_exposure(self):

@@ -31,7 +31,8 @@ class Device(dev_generic.Device):
     def get_frequency(self):
         """Read current laser frequency."""
         freq = self.wavemeter.get_frequency()
-        freq = np.nan if freq < 0 else freq
+        # If error is encoutered, set frequency to NaN
+        freq = np.nan if freq <= 0 or freq is None else freq
         return freq
 
     def get_values(self):
