@@ -26,6 +26,7 @@ import dev_metonedr528
 import dev_srsctc100
 import dev_cryomechcpa1110
 import dev_highfinesse
+import dev_rp_lockbox
 
 logger = logging.getLogger()
 
@@ -77,6 +78,10 @@ def init_device(device):
     # (using Windows DLL API)
     if device['Model'] == 'HighFinesse':
         device_instance = dev_highfinesse.Device(device)
+
+    # Red Pitaya lockbox (rp-lockbox)
+    if device['Model'] == 'rp-lockbox':
+        device_instance = dev_rp_lockbox.Device(device)
 
     if device_instance is None:
         msg = f'Unknown device model \'{device["Model"]}\''

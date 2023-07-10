@@ -13,12 +13,13 @@ Maintained by Lothar Maisenbacher (UC Berkeley), partly based on earlier softwar
 - `SRS CTC100`: Stanford Research Instruments CTC100 cryogenic temperature controller (using USB interface)
 - `Cryomech CPA1110`: Cryomech CPA1110 helium compressor (using Modbus TCP protocol over ethernet interface)
 - `HighFinesse`: HighFinesse wavemeters (tested with models WS Ultimate 2 MC and WS/7) (through Windows DLL API communicating with wavemeter software)
+- `rp-lockbox`: Custom Red Pitaya lockbox [`rp-lockbox`](https://github.com/lmaisenbacher/rp-lockbox)
 
 ## Preparation
 
 ### Installing `pipenv`
 
-`pipenv` (https://pipenv.pypa.io/) is used to create a virtual environment and install the required packages for `logger2`. `pipenv` keeps track of all dependencies (i.e., required Python packages) in the file `Pipfile` in the repository.
+[`pipenv`](https://pipenv.pypa.io/) is used to create a virtual environment and install the required packages for `logger2`. `pipenv` keeps track of all dependencies (i.e., required Python packages) in the file `Pipfile` in the repository.
 
 The `pipenv` documentation recommends installing it as a user-package with `pip install --user pipenv`. When running `logger2` as a service/daemon, make sure that it is run under the user that `pipenv` was installed for, as it will not be found otherwise.
 
