@@ -28,6 +28,7 @@ class Device(dev_generic.Device):
 
     def connect(self):
         """Open serial connection to device."""
+        device = self.device
         try:
             ser = serial.Serial(
                 device["Address"], timeout=device.get("Timeout"),
