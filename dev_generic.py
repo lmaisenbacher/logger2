@@ -29,7 +29,11 @@ class Device:
         self.visa_resource = None
 
     def connect(self):
-        """Connect to device."""
+        """Open connection to device."""
+        None
+
+    def close(self):
+        """Close connection to device."""
         None
 
     def to_float(self, value):
@@ -51,10 +55,6 @@ class Device:
             raise LoggerError(e)
         else:
             return int(value_float)
-
-    # def closeConn(self):
-
-    #     None
 
     def init_visa(self):
         """Initialize VISA connection."""
