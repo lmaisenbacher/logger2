@@ -79,14 +79,14 @@ class Device(dev_generic.Device):
 
     def read_pressure(self):
         """Read pressure."""
-        if self.device.get('ConfirmFilamentIsOn', False):
+        if self.device["DeviceSpecificParams"].get('ConfirmFilamentIsOn', False):
             # Check whether filament is powered up and gauge is reading
             rsp = self.query("IGS")
             if rsp.startswith("0"):
                 raise LoggerError(
                     "Filament is not powered up, no pressure reading available")
         # Read pressure
-        if self.device.get('ReadCombinedPressure', False):
+        if self.device["DeviceSpecificParams"].get('ReadCombinedPressure', False):
             rsp = self.query("RDS")
         else:
             rsp = self.query("RD")
