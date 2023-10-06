@@ -1,0 +1,33 @@
+[
+    {
+        "Device":"Pressure Gauge Controller",
+        "tags":{},
+        "measurement":"pressure",
+        "Timeout":2,
+        "Channels":
+        {
+            "Channel1":
+            {   
+				"Type":"Pressure",
+				"DeviceChannel":0,
+                "field-key":"Pressure",
+                "tags":
+                {
+                    "sensor":"Pressure",
+                    "unit":"Torr"
+                }
+            },
+            "Channel2":
+            {   
+				"Type":"Pressure",
+				"DeviceChannel":1,
+                "field-key":"Pressure",
+                "tags":
+                {
+                    "sensor":"Pressure",
+                    "unit":"Torr"
+                }
+            } 			
+        }	
+    }
+]
