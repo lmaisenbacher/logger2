@@ -7,9 +7,8 @@ import serial
 import io
 import logging
 
-import dev_generic
-
-from defs import LoggerError
+from amodevices import dev_generic
+from amodevices.dev_exceptions import DeviceError
 
 logger = logging.getLogger()
 
@@ -34,7 +33,7 @@ class Device(dev_generic.Device):
                 device["Address"], timeout=device.get("Timeout"),
                 **device.get('SerialConnectionParams', {}))
         except serial.SerialException:
-            raise LoggerError(
+            raise DeviceError(
                 f"Serial connection with {device['Device']} couldn't be opened")
         sio = io.TextIOWrapper(
             io.BufferedRWPair(ser, ser), encoding='ASCII', newline='\r')
@@ -51,7 +50,7 @@ class Device(dev_generic.Device):
         query = command+'\n'
         n_write_bytes = self.sio.write(command+'\n')
         if n_write_bytes != len(query):
-            raise LoggerError(f"Failed to query {self.device['Device']}")
+            raise DeviceError(f"Failed to query {self.device['Device']}")
         # Flush the write buffer to send the command immediately
         self.sio.flush()
 
@@ -61,7 +60,7 @@ class Device(dev_generic.Device):
         response = self.sio.readline()
         ack = self.sio.read(1)
         if ack != '>':
-            raise LoggerError(f"{self.device['Device']} failed to acknowledge command")
+            raise DeviceError(f"{self.device['Device']} failed to acknowledge command")
         return response.rstrip()
 
     def send_command(self, command):
@@ -69,12 +68,12 @@ class Device(dev_generic.Device):
         self.write(command)
         ack = self.sio.read(1)
         if ack != '>':
-            raise LoggerError(f"{self.device['Device']} failed to acknowledge command")
+            raise DeviceError(f"{self.device['Device']} failed to acknowledge command")
 
     def read_voltage(self, axis):
         """Read voltage of axis `axis` (str, either 'x', 'y', or 'z')."""
         if axis not in ['x', 'y', 'z']:
-            raise LoggerError(f'Unknown axis \'{axis}\' for {self.device["Device"]}')
+            raise DeviceError(f'Unknown axis \'{axis}\' for {self.device["Device"]}')
         command = f'{axis}voltage?'
         response = self.query(command)
         return(float(response[1:-1]))
@@ -85,7 +84,7 @@ class Device(dev_generic.Device):
         of V).
         """
         if axis not in ['x', 'y', 'z']:
-            raise LoggerError(f'Unknown axis \'{axis}\' for {self.device["Device"]}')
+            raise DeviceError(f'Unknown axis \'{axis}\' for {self.device["Device"]}')
         command = f'{axis}voltage={voltage}'
         self.send_command(command)
 

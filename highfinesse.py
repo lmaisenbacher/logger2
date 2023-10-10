@@ -8,7 +8,7 @@ Adapted by Lothar Maisenbacher/UC Berkeley.
 import logging
 import ctypes
 
-from defs import LoggerError
+from amodevices.dev_exceptions import DeviceError
 
 LOG = logging.getLogger()
 
@@ -65,7 +65,7 @@ class Wavemeter():
         except OSError as err:
             msg = "Could not open HighFinesse Wavelength Meter library. Error: %s", str(err)
             LOG.error(msg)
-            raise LoggerError(msg)
+            raise DeviceError(msg)
         else:
             self.wlm_lib.GetFrequencyNum.restype = ctypes.c_double
             self.wlm_lib.GetWavelengthNum.restype = ctypes.c_double
@@ -76,7 +76,7 @@ class Wavemeter():
             if retval == 0:
                 msg = "Could not instantiate wavelength meter. Is the software running?"
                 LOG.error(msg)
-                raise LoggerError(msg)
+                raise DeviceError(msg)
 
             self.device_present = True
 

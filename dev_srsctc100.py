@@ -8,9 +8,8 @@ which implements a virtual serial port.
 import serial
 import logging
 
-import dev_generic
-
-from defs import LoggerError
+from amodevices import dev_generic
+from amodevices.dev_exceptions import DeviceError
 
 logger = logging.getLogger()
 
@@ -29,7 +28,7 @@ class Device(dev_generic.Device):
                 device["Address"], timeout=device["Timeout"],
                 **device.get('SerialConnectionParams', {}))
         except serial.SerialException:
-            raise LoggerError(
+            raise DeviceError(
                 f"Serial connection on port {device['Address']} couldn't be opened")
 
     def query(self, command):
@@ -37,17 +36,17 @@ class Device(dev_generic.Device):
         query = f"{command}\n".encode(encoding="ASCII")
         n_write_bytes = self.connection.write(query)
         if n_write_bytes != len(query):
-            raise LoggerError("Failed to write to device")
+            raise DeviceError("Failed to write to device")
         rsp = self.connection.readline()
         try:
             rsp = rsp.decode(encoding="ASCII")
         except UnicodeDecodeError:
-            raise LoggerError(f"Error in decoding response ('{rsp}') received")
+            raise DeviceError(f"Error in decoding response ('{rsp}') received")
         if rsp == '':
-            raise LoggerError(
+            raise DeviceError(
                 "No response received")
         if not rsp.endswith("\r\n"):
-            raise LoggerError("Response does not end with '\r\n' as expected")
+            raise DeviceError("Response does not end with '\r\n' as expected")
         return rsp.rstrip()
 
     def read_temperature(self, name):
@@ -88,7 +87,7 @@ class Device(dev_generic.Device):
                 value = self.query_custom_command(chan["tags"]["CTC100CustomCommand"])
                 readings[channel_id] = value
             else:
-                raise LoggerError(
+                raise DeviceError(
                     f'Unknown channel type \'{chan["Type"]}\' for channel \'{channel_id}\''
                     +f' of device \'{self.device["Device"]}\'')
         return readings

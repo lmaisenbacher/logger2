@@ -6,7 +6,7 @@ with measurements read from the web API at `https://api.purpleair.com/`.
 Currently, each sensor - here defined as a channel - is read out with a separate API request.
 In the future, the group feature of the API should be used to read out multiple sensors.
 
-The access the API, an API key is required, which at the time of writing needed to be requested 
+The access the API, an API key is required, which at the time of writing needed to be requested
 from `contact@purpleair.com`.
 """
 
@@ -14,18 +14,17 @@ import logging
 import numpy as np
 import requests
 
-import dev_generic
-
-from defs import LoggerError
+from amodevices import dev_generic
+from amodevices.dev_exceptions import DeviceError
 
 logger = logging.getLogger()
 
 class Device(dev_generic.Device):
-       
+
     def __init__(self, device):
         """
         Initialize device.
-        
+
         device : dict
             Configuration dict of the device to initialize.
         """
@@ -35,7 +34,7 @@ class Device(dev_generic.Device):
         """Read channels."""
         readings = {}
         for channel_id, channel in self.device['Channels'].items():
-            
+
             sensor_index = channel['PurpleAirSensorIndex']
             url = f'https://api.purpleair.com/v1/sensors/{sensor_index}'
             headers = {'X-API-Key': self.device['PurpleAirAPIKey']}
@@ -49,7 +48,7 @@ class Device(dev_generic.Device):
                 msg = (
                     'Could not complete HTTP Get request for PurpleAir API'
                     +f' ({r.status_code}: {r.reason})')
-                raise LoggerError(msg)
+                raise DeviceError(msg)
             r.request.headers
             data = r.json()
 
@@ -59,5 +58,5 @@ class Device(dev_generic.Device):
             # 0.3 μm *and greater*; see also PurpleAir API documentation)
             readings[channel_id] = float(np.sum([
                 data['sensor'][f'{size:.1f}_um_count'] for size in [0.3]]))
-        
+
         return readings

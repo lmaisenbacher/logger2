@@ -12,6 +12,7 @@ import argparse
 from pathlib import Path
 
 from defs import LoggerError
+from amodevices.dev_exceptions import DeviceError
 
 import influxdb_client
 from influxdb_client.client.write_api import SYNCHRONOUS
@@ -95,7 +96,7 @@ def init_device(device):
 
     try:
         device_instance.connect()
-    except LoggerError as err:
+    except (LoggerError, DeviceError) as err:
         logger.error('Could not connect. Error: %s', err.value)
 
     return device_instance
@@ -201,7 +202,7 @@ if __name__ == "__main__":
                 if device.get('ParallelReadout', True):
                     try:
                         readings = instance.get_values()
-                    except LoggerError as err:
+                    except (LoggerError, DeviceError) as err:
                         logger.error('Could not get measurement values. Error: %s', err.value)
                         continue
                     for channel_id, value in readings.items():

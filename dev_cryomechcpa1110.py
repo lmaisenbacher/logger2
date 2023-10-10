@@ -8,9 +8,8 @@ import logging
 from pymodbus.client import ModbusTcpClient
 from pymodbus.exceptions import ModbusException
 
-import dev_generic
-
-from defs import LoggerError
+from amodevices import dev_generic
+from amodevices.dev_exceptions import DeviceError
 
 logger = logging.getLogger()
 
@@ -35,10 +34,10 @@ class Device(dev_generic.Device):
                 device["Address"], timeout=device["Timeout"])
             self.client.connect()
         except ModbusException as e:
-            raise LoggerError(
+            raise DeviceError(
                 f"Modbus connection on port {device['Address']} couldn't be opened: '{e}'")
         if not self.client.connected:
-            raise LoggerError(
+            raise DeviceError(
                 f"Modbus connection on port {device['Address']} couldn't be opened")
         self.device_connected = True
 
@@ -54,13 +53,13 @@ class Device(dev_generic.Device):
                 logger.error('Modbus connection is not open, trying to connect...')
                 self.connect()
             else:
-                raise LoggerError("Modbus connection not open")
+                raise DeviceError("Modbus connection not open")
         try:
             values = self.client.read_input_registers(register, 1, slave=self.device_id)
         except ModbusException as e:
-            raise LoggerError(f"Encountered Modbus exception when trying to read register: '{e}'")
+            raise DeviceError(f"Encountered Modbus exception when trying to read register: '{e}'")
         if values.isError():
-            raise LoggerError("Encountered Modbus exception when trying to read register")
+            raise DeviceError("Encountered Modbus exception when trying to read register")
         return float(values.registers[0])/10
 
     def read_coolant_in_temperature(self):
@@ -116,7 +115,7 @@ class Device(dev_generic.Device):
                 value = self.read_high_pressure()
                 readings[channel_id] = value
             else:
-                raise LoggerError(
+                raise DeviceError(
                     f'Unknown channel type \'{chan["Type"]}\' for channel \'{channel_id}\''
                     +f' of device \'{self.device["Device"]}\'')
         return readings

@@ -9,10 +9,10 @@ The wavemeter software must be running on the same PC.
 import numpy as np
 import logging
 
-import dev_generic
-import highfinesse
+from amodevices import dev_generic
+from amodevices.dev_exceptions import DeviceError
 
-from defs import LoggerError
+import highfinesse
 
 logger = logging.getLogger()
 
@@ -44,7 +44,7 @@ class Device(dev_generic.Device):
                 value = self.get_frequency()
                 readings[channel_id] = value
             else:
-                raise LoggerError(
+                raise DeviceError(
                     f'Unknown channel type \'{chan["Type"]}\' for channel \'{channel_id}\''
                     +f' of device \'{self.device["Device"]}\'')
         return readings

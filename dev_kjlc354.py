@@ -30,9 +30,8 @@ This might be different than the pin assignment of your RS-485 adapter
 import serial
 import logging
 
-import dev_generic
-
-from defs import LoggerError
+from amodevices import dev_generic
+from amodevices.dev_exceptions import DeviceError
 
 logger = logging.getLogger()
 
@@ -51,7 +50,7 @@ class Device(dev_generic.Device):
                 device["Address"], timeout=device["Timeout"],
                 **device.get('SerialConnectionParams', {}))
         except serial.SerialException:
-            raise LoggerError(
+            raise DeviceError(
                 f"Serial connection on port {device['Address']} couldn't be opened")
 
     def query(self, command):
@@ -60,20 +59,20 @@ class Device(dev_generic.Device):
         query = f'#{internal_address}{command}\r'.encode(encoding="ASCII")
         n_write_bytes = self.connection.write(query)
         if n_write_bytes != len(query):
-            raise LoggerError("Failed to write to device")
+            raise DeviceError("Failed to write to device")
         rsp = self.connection.readline()
         try:
             rsp = rsp.decode(encoding="ASCII")
         except UnicodeDecodeError:
-            raise LoggerError(f"Error in decoding response ('{rsp}') received")
+            raise DeviceError(f"Error in decoding response ('{rsp}') received")
         if rsp == '':
-            raise LoggerError(
+            raise DeviceError(
                 "No response received")
         if rsp.startswith("?"):
-            raise LoggerError(
+            raise DeviceError(
                 f"Received an error response: '{rsp}'")
         if not rsp.startswith(f"*{internal_address} "):
-            raise LoggerError(
+            raise DeviceError(
                 f"Didn't receive correct acknowledgement (response received: '{rsp}')")
         return rsp[4:]
 
@@ -83,7 +82,7 @@ class Device(dev_generic.Device):
             # Check whether filament is powered up and gauge is reading
             rsp = self.query("IGS")
             if rsp.startswith("0"):
-                raise LoggerError(
+                raise DeviceError(
                     "Filament is not powered up, no pressure reading available")
         # Read pressure
         if self.device["DeviceSpecificParams"].get('ReadCombinedPressure', False):
@@ -101,7 +100,7 @@ class Device(dev_generic.Device):
                 value = self.read_pressure()
                 readings[channel_id] = value
             else:
-                raise LoggerError(
+                raise DeviceError(
                     f'Unknown channel type \'{chan["Type"]}\' for channel \'{channel_id}\''
                     +f' of device \'{self.device["Device"]}\'')
         return readings

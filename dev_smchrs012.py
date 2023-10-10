@@ -9,9 +9,8 @@ of the cooling liquid.
 import serial
 import logging
 
-import dev_generic
-
-from defs import LoggerError
+from amodevices import dev_generic
+from amodevices.dev_exceptions import DeviceError
 
 logger = logging.getLogger()
 
@@ -30,7 +29,7 @@ class Device(dev_generic.Device):
                 device["Address"], timeout=device["Timeout"],
                 **device.get('SerialConnectionParams', {}))
         except serial.SerialException:
-            raise LoggerError(
+            raise DeviceError(
                 f"Serial connection with {device['Device']} couldn't be opened")
 
     def generate_query(self, command):
@@ -44,10 +43,10 @@ class Device(dev_generic.Device):
         query = self.generate_query(meas_type)
         n_write_bytes = self.connection.write(query)
         if n_write_bytes != len(query):
-            raise LoggerError(f"Failed to query {self.device['Device']}")
+            raise DeviceError(f"Failed to query {self.device['Device']}")
         rsp = self.connection.readline()
         if rsp.decode(encoding="ASCII")[3] != '\x06':
-            raise LoggerError(f"Didn't receive acknowledgement from {self.device['Device']}")
+            raise DeviceError(f"Didn't receive acknowledgement from {self.device['Device']}")
         # Convert to degree Celsius
         return float(rsp[7:12]) / 10
 
@@ -60,7 +59,7 @@ class Device(dev_generic.Device):
                 value = self.read_temperature(chan['Type'])
                 readings[channel_id] = value
             else:
-                raise LoggerError(
+                raise DeviceError(
                     f'Unknown channel type \'{chan["Type"]}\' for channel \'{channel_id}\''
                     +f' of device \'{self.device["Device"]}\'')
         return readings

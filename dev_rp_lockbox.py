@@ -9,9 +9,8 @@
 import socket
 import logging
 
-import dev_generic
-
-from defs import LoggerError
+from amodevices import dev_generic
+from amodevices.dev_exceptions import DeviceError
 
 logger = logging.getLogger()
 
@@ -34,7 +33,7 @@ class Device(dev_generic.Device):
             self._socket.connect((
                 self.device['Address'], self.device['SCPIConnectionParams']['Port']))
         except socket.timeout as err:
-            raise LoggerError(f'Failed to connect to socket. Error: {err}')
+            raise DeviceError(f'Failed to connect to socket. Error: {err}')
 
     def __del__(self):
         if self._socket is not None:
@@ -397,7 +396,7 @@ class Device(dev_generic.Device):
         """"""
         device_channel = chan.get('DeviceChannel')
         if device_channel is None:
-            raise LoggerError(
+            raise DeviceError(
                 'Could not get required propertry \'DeviceChannel\' for channel \'%s\'', channel_id)
         return device_channel
 
@@ -415,7 +414,7 @@ class Device(dev_generic.Device):
                 value = self.get_fast_analog_output(device_channel)
                 readings[channel_id] = value
             else:
-                raise LoggerError(
+                raise DeviceError(
                     f'Unknown channel type \'{chan["Type"]}\' for channel \'{channel_id}\''
                     +f' of device \'{self.device["Device"]}\'')
         return readings

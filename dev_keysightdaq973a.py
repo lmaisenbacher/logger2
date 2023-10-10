@@ -6,9 +6,8 @@ This module contains drivers for the Keysight DAQ970A/973A multimeter connected 
 import logging
 import numpy as np
 
-import dev_generic
-
-from defs import LoggerError
+from amodevices import dev_generic
+from amodevices.dev_exceptions import DeviceError
 
 logger = logging.getLogger()
 
@@ -132,7 +131,7 @@ class Device(dev_generic.Device):
             msg = (
                 'Returned measurements (channel(s) {}) do not match requested channel(s) ({})'
                 .format(','.join([f'{elem:d}' for elem in chans_read]), self.device_channels_str))
-            raise LoggerError(msg)
+            raise DeviceError(msg)
         readings = {
             channel_id: value for channel_id, value in zip(self.device['Channels'].keys(), values)}
         return readings

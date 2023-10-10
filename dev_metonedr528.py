@@ -8,9 +8,8 @@ air temperature, and relative humidity.
 import serial
 import logging
 
-import dev_generic
-
-from defs import LoggerError
+from amodevices import dev_generic
+from amodevices.dev_exceptions import DeviceError
 
 logger = logging.getLogger()
 
@@ -29,7 +28,7 @@ class Device(dev_generic.Device):
                 device["Address"], timeout=device["Timeout"],
                 **device.get('SerialConnectionParams', {}))
         except serial.SerialException:
-            raise LoggerError(
+            raise DeviceError(
                 f"Serial connection with {device['Device']} couldn't be opened")
 
     def to_readings(self, message):
@@ -44,10 +43,10 @@ class Device(dev_generic.Device):
         readings = {}
         n_write_bytes = self.connection.write(f'4\r'.encode("ASCII"))
         if n_write_bytes != 2:
-            raise LoggerError(f"Failed to query {self.device['Device']}")
+            raise DeviceError(f"Failed to query {self.device['Device']}")
         message = self.connection.readlines()
         if len(message) < 1:
-            raise LoggerError(f"Didn't receive acknowledgement from {self.device['Device']}")
+            raise DeviceError(f"Didn't receive acknowledgement from {self.device['Device']}")
         else:
             readings = self.to_readings(message)
         return readings
