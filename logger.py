@@ -27,6 +27,7 @@ import dev_srsctc100
 import dev_cryomechcpa1110
 import dev_highfinesse
 import dev_rp_lockbox
+import dev_thorlabs_kpa101
 
 logger = logging.getLogger()
 
@@ -82,6 +83,10 @@ def init_device(device):
     # Red Pitaya lockbox (rp-lockbox)
     if device['Model'] == 'rp-lockbox':
         device_instance = dev_rp_lockbox.Device(device)
+
+    # Thorlabs KPA101 beam position aligner
+    if device['Model'] == 'Thorlabs KPA101':
+        device_instance = dev_thorlabs_kpa101.Device(device)
 
     if device_instance is None:
         msg = f'Unknown device model \'{device["Model"]}\''
