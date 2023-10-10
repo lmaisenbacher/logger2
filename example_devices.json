@@ -21,7 +21,7 @@
         "Channels":
         {
             "PV1":
-            {   
+            {
                 "Type":"PV1",
                 "Multiplier":1,
                 "field-key":"value",
@@ -32,7 +32,7 @@
                 }
             },
             "SV1":
-            {   
+            {
                 "Type":"SV1",
                 "Multiplier":1,
                 "field-key":"value",
@@ -41,30 +41,30 @@
                     "sensor":"Setpoint",
                     "unit":"DegC"
                 }
-            }         
-        }        
+            }
+        }
     },
     {
         "Device":"Keysight DAQ973A multimeter 1",
         "Model":"Keysight DAQ973A",
         "Address":"TCPIP0::K-DAQ973A-0296.local::inst0::INSTR",
         "VISAIDN":"Keysight Technologies,DAQ973A,MY59000296,A.02.02-01.00-02.01-00.02-02.00-03-03",
-        "DeviceSpecificParams":{},        
+        "DeviceSpecificParams":{},
         "ParallelReadout":true,
         "tags":{},
         "measurement":"temperature",
-        "Timeout":60000,        
+        "Timeout":60000,
         "Channels":
         {
             "101":
-            {   
+            {
                 "DeviceChannel":101,
                 "Type":"DCV",
 				"DeviceSpecificParams":
 				{
 					"NPLC":10,
 					"Range":5
-				},				
+				},
                 "Multiplier":1,
                 "field-key":"voltage",
                 "tags":
@@ -72,15 +72,15 @@
                     "sensor":"101",
                     "unit":"V"
                 }
-            },			
+            },
             "102":
-            {   
+            {
                 "DeviceChannel":102,
                 "Type":"ACV",
 				"DeviceSpecificParams":
 				{
 					"Range":0.1
-				},				
+				},
                 "Multiplier":1,
                 "field-key":"voltage",
                 "tags":
@@ -88,7 +88,7 @@
                     "sensor":"Test AC",
                     "unit":"V"
                 }
-            } 
+            }
         }
     },
     {
@@ -98,13 +98,13 @@
         "ParallelReadout":true,
         "tags":{},
         "measurement":"particlecounts",
-        "Timeout":10,        
+        "Timeout":10,
         "Channels":
         {
             "Test":
-            {   
+            {
                 "Multiplier":1,
-                "PurpleAirSensorIndex":"108682",                
+                "PurpleAirSensorIndex":"108682",
                 "field-key":"0.3_um_count",
                 "tags":
                 {
@@ -113,7 +113,7 @@
                 }
             }
         }
-    },	
+    },
     {
         "Device":"Met One DR-528 handheld particle counter",
         "Model":"Met One DR-528",
@@ -132,7 +132,7 @@
         "Channels":
         {
             "0.3(CF)":
-            {   
+            {
                 "Type":"0.3(CF)",
                 "Multiplier":1,
                 "field-key":"0.3_um_count",
@@ -142,9 +142,9 @@
                     "unit":"Counts"
                 }
             },
-            
+
             "AT(C)":
-            {   
+            {
                 "Type":"Atmospheric Temperature",
                 "Multiplier":1,
                 "field-key":"value",
@@ -155,7 +155,7 @@
                 }
             },
             "RH(%)":
-            {   
+            {
                 "Type":"Relative Humidity",
                 "Multiplier":1,
                 "field-key":"value",
@@ -192,11 +192,11 @@
         {
             "pressure":
             {
-                "Type":"Pressure",				
+                "Type":"Pressure",
                 "field-key":"pressure",
                 "tags":
                 {
-                    "sensor":"KJLC 354 ion gauge",         					
+                    "sensor":"KJLC 354 ion gauge",
                     "unit":"Torr"
                 }
             }
@@ -227,7 +227,7 @@
         {
             "pressure":
             {
-                "Type":"Pressure",				
+                "Type":"Pressure",
                 "field-key":"pressure",
                 "tags":
                 {
@@ -236,7 +236,7 @@
                 }
             }
         }
-    },	
+    },
     {
         "Device":"Cryogenic temperature controller",
         "Model":"SRS CTC100",
@@ -260,8 +260,8 @@
                 "field-key":"temperature",
                 "tags":
                 {
-                    "sensor":"4K heat exchanger",	
-					"CTC100SensorName":"D6120284",       
+                    "sensor":"4K heat exchanger",
+					"CTC100SensorName":"D6120284",
                     "unit":"K"
                 }
             },
@@ -271,11 +271,11 @@
                 "field-key":"temperature",
                 "tags":
                 {
-                    "sensor":"1K heat exchanger",	
-					"CTC100SensorName":"X173903",       
+                    "sensor":"1K heat exchanger",
+					"CTC100SensorName":"X173903",
                     "unit":"K"
                 }
-            }			
+            }
         }
     },
     {
@@ -288,10 +288,10 @@
         "Channels":
         {
             "Sensor1":
-            {   
+            {
                 "I2CAddress": "0x48",
                 "Pins":
-                    {  
+                    {
                         "Signal": 0,
                         "Reference": 1
                     },
@@ -305,13 +305,13 @@
                 }
             },
             "Sensor2":
-            {   
+            {
                 "I2CAddress": "0x48",
                 "Type":"Pressure",
                 "Multiplier":250,
                 "field-key":"value",
                 "Pins":
-                    {  
+                    {
                         "Signal": 2,
                         "Reference": 3
                     },
@@ -321,12 +321,12 @@
                     "unit":"Torr"
                 }
             },"Sensor3":
-            {   
+            {
                 "I2CAddress": "0x49",
                 "Type":"Pressure",
                 "Multiplier":250,
                 "Pins":
-                    {  
+                    {
                         "Signal": 0,
                         "Reference": 1
                     },
@@ -337,12 +337,12 @@
                     "unit":"Torr"
                 }
             },"Sensor4":
-            {   
+            {
                 "I2CAddress": "0x49",
                 "Type":"Pressure",
                 "Multiplier":250,
                 "Pins":
-                    {  
+                    {
                         "Signal": 0,
                         "Reference": 1
                     },
@@ -352,7 +352,7 @@
                     "sensor":"sensor",
                     "unit":"Torr"
                 }
-            }       
+            }
         }
     },
     {
@@ -360,18 +360,103 @@
         "Model":"HighFinesse",
         "tags":{},
         "measurement":"wavemeter",
-        "Timeout":10,        
+        "Timeout":10,
         "Channels":
         {
             "Frequency":
-            {   
+            {
 				"Type":"Frequency",
                 "field-key":"frequency",
                 "tags":
                 {
                     "unit":"THz"
                 }
-            }    
+            }
         }
-    }	
+    },
+    {
+        "Device":"Thorlabs KPA101 beam position aligner",
+        "Model":"Thorlabs KPA101",
+		"SerialNumber":69252254,
+        "tags":{},
+        "measurement":"beamposition",
+        "Timeout":10,
+        "Channels":
+        {
+            "XDiff":
+            {
+				"Type":"XDiff",
+                "field-key":"voltage",
+                "tags":
+                {
+                    "sensor":"XDiff",
+                    "unit":"V"
+                }
+            },
+			"YDiff":
+            {
+				"Type":"YDiff",
+                "field-key":"voltage",
+                "tags":
+                {
+                    "sensor":"YDiff",
+                    "unit":"V"
+                }
+            },
+			"Sum":
+            {
+				"Type":"Sum",
+                "field-key":"voltage",
+                "tags":
+                {
+                    "sensor":"Sum",
+                    "unit":"V"
+                }
+            }
+        }
+    },
+    {
+        "Device":"Thorlabs MDT693B 3-axis piezo controller",
+        "Model":"Thorlabs MDT693B",
+		"Address":"COM3",
+        "tags":{},
+        "measurement":"piezocontroller",
+        "Timeout":10,
+        "Channels":
+        {
+            "Voltage x-axis":
+            {
+				"Type":"Vout",
+				"Axis":"x",
+                "field-key":"voltage",
+                "tags":
+                {
+                    "sensor":"x",
+                    "unit":"V"
+                }
+            },
+            "Voltage y-axis":
+            {
+				"Type":"Vout",
+				"Axis":"y",
+                "field-key":"voltage",
+                "tags":
+                {
+                    "sensor":"y",
+                    "unit":"V"
+                }
+            },
+            "Voltage z-axis":
+            {
+				"Type":"Vout",
+				"Axis":"z",
+                "field-key":"voltage",
+                "tags":
+                {
+                    "sensor":"z",
+                    "unit":"V"
+                }
+            }
+        }
+    }
 ]
