@@ -497,5 +497,32 @@
                 }
             }
         }
-    }
+    },
+    {
+        "Device":"Cavity mirror piezo controller",
+        "Model":"Slapdash",
+		"Address":"localhost",
+		"Port":8001,
+        "tags":{},
+        "measurement":"piezocontroller",
+        "Timeout":1,
+        "Channels":
+        {
+            "Voltage x-axis":
+            {
+				"Type":"SlapdashAttribute",
+				"SlapdashServerStructure":
+				{
+					"Attribute":"voltage",
+					"Subclass":"channel_x"
+				},
+                "field-key":"voltage",
+                "tags":
+                {
+                    "sensor":"x",
+                    "unit":"V"
+                }
+            }
+		}
+	}
 ]
