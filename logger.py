@@ -158,19 +158,19 @@ if __name__ == "__main__":
         channel = device['Channels'][channel_id]
         tags = {
             'device': device['Device'],
-            **device["tags"]
+            **device['tags']
             }
         tags.update(channel.get("tags", {}))
-        if "Multiplier" in channel:
-            value *= channel["Multiplier"]
+        if 'Multiplier' in channel:
+            value *= channel['Multiplier']
         json_body = [
             {
-                "measurement": device["measurement"],
-                "fields": {channel["field-key"]: value},
-                "tags": tags
+                'measurement': device['measurement'],
+                'fields': {channel['field-key']: value},
+                'tags': tags
             }
         ]
-        logger.info("Channel %s: %s", channel_id, value)
+        logger.info('Channel \'%s\': %s', channel_id, value)
         try:
             write_api.write(
                 DB_BUCKET, DB_ORG, json_body)
