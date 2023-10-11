@@ -30,6 +30,7 @@ import dev_highfinesse
 import dev_rp_lockbox
 import dev_thorlabs_kpa101
 import dev_thorlabs_mdt693b
+import dev_thorlabs_pm100
 
 logger = logging.getLogger()
 
@@ -83,6 +84,9 @@ def init_device(device):
     # Thorlabs KPA101 beam position aligner
     if device['Model'] == 'Thorlabs MDT693B':
         device_instance = dev_thorlabs_mdt693b.Device(device)
+    # Thorlabs PM100 power meter
+    if device['Model'] == 'Thorlabs PM100':
+        device_instance = dev_thorlabs_pm100.Device(device)
     # Unknown device
     if device_instance is None:
         msg = f'Unknown device model \'{device["Model"]}\''

@@ -458,5 +458,44 @@
                 }
             }
         }
+    },
+    {
+        "Device":"Thorlabs PM100D power meter",
+        "Model":"Thorlabs PM100",
+		"Address":"USB0::0x1313::0x8078::P0035093::INSTR",
+		"VISAIDN":"Thorlabs,PM100D,P0035093,2.8.1",
+        "tags":{"sensor":"test"},
+        "measurement":"powermeter2",
+        "Timeout":10,
+        "Channels":
+        {
+            "Power":
+            {
+				"Type":"Power",
+                "field-key":"power",
+                "tags":
+                {
+                    "unit":"W"
+                }
+            },
+            "Wavelength":
+            {
+				"Type":"Wavelength",
+                "field-key":"wavelength",
+                "tags":
+                {
+                    "unit":"W"
+                }
+            },
+            "BeamDiameter":
+            {
+				"Type":"BeamDiameter",
+                "field-key":"beamdiameter",
+                "tags":
+                {
+                    "unit":"W"
+                }
+            }
+        }
     }
 ]
