@@ -41,6 +41,8 @@ class Device(ThorlabsPM100):
                 readings[channel_id] = self.beam_diameter
             elif chan['Type'] == 'NumAverages':
                 readings[channel_id] = self.num_averages
+            elif chan['Type'] == 'ZeroMagnitude':
+                readings[channel_id] = self.zero_magnitude
             else:
                 raise DeviceError(
                     f'Unknown channel type \'{chan["Type"]}\' for channel \'{channel_id}\''
