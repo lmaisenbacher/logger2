@@ -9,6 +9,7 @@ from amodevices.dev_generic import Device
 from amodevices.dev_exceptions import DeviceError
 
 from slapdash import Client
+from requests.exceptions import ConnectionError
 
 logger = logging.getLogger()
 
@@ -26,9 +27,13 @@ class Device(Device):
 
     def connect(self):
         """Open connection to server."""
-        self._client = Client(
-            self.device['Address'], self.device['Port'],
-            timeout=self.device.get('Timeout', 10))
+        try:
+            self._client = Client(
+                self.device['Address'], self.device['Port'],
+                timeout=self.device.get('Timeout', 10))
+        except ConnectionError as e:
+            raise DeviceError(
+                f'Could not connect to Slapdash server of device \'{self.device["Device"]}\': {e}')
 
     def get_values(self):
         """Read channels."""
