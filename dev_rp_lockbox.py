@@ -165,6 +165,20 @@ class Device(dev_generic.Device):
         """
         return float(self.txrx_txt('PID:IN{}:OUT{}:SETPoint?'.format(num_in, num_out)))
 
+    def set_kg(self, num_in, num_out, gain):
+        """Set the global gain.
+
+        :gain: the gain to set (0 to 4096)
+        """
+        self.tx_txt('PID:IN{}:OUT{}:KG {}'.format(num_in, num_out, gain))
+
+    def get_kg(self, num_in, num_out):
+        """Return the global gain.
+
+        :returns: the global gain
+        """
+        return float(self.txrx_txt('PID:IN{}:OUT{}:KG?'.format(num_in, num_out)))
+
     def set_kp(self, num_in, num_out, gain):
         """Set the P gain.
 
@@ -191,17 +205,29 @@ class Device(dev_generic.Device):
         :returns: the I gain in 1/s. The unity gain frequency is ki/(2 pi)."""
         return float(self.txrx_txt('PID:IN{}:OUT{}:KI?'.format(num_in, num_out)))
 
+    def set_kii(self, num_in, num_out, gain):
+        """Set the II (second integrator) gain.
+
+        :gain: the gain to set in 1/s. The corner frequency is kii/(2 pi)."""
+        self.tx_txt('PID:IN{}:OUT{}:KII {}'.format(num_in, num_out, gain))
+
+    def get_kii(self, num_in, num_out):
+        """Return the II (second integrator) gain.
+
+        :returns: the II gain in 1/s. The corner frequency is kii/(2 pi)."""
+        return float(self.txrx_txt('PID:IN{}:OUT{}:KII?'.format(num_in, num_out)))
+
     def set_kd(self, num_in, num_out, gain):
         """Set the D gain.
 
-        :gain: the gain to set
+        :gain: the gain to set in s. The unity gain frequency is 1/(2 pi kd).
         """
         self.tx_txt('PID:IN{}:OUT{}:KD {}'.format(num_in, num_out, gain))
 
     def get_kd(self, num_in, num_out):
         """Return the D gain
 
-        :returns: the D gain
+        :returns: the D gain in s. The unity gain frequency is 1/(2 pi kd).
         """
         return float(self.txrx_txt('PID:IN{}:OUT{}:KD?'.format(num_in, num_out)))
 
@@ -393,12 +419,30 @@ class Device(dev_generic.Device):
         return float(self.txrx_txt(f'ANALOG:OUT{num_out:d}:VOLT?'))
 
     def get_device_channel(self, channel_id, chan):
-        """"""
+        """Get device channel from channel definition `chan` for channel with ID `channel_id`"""
         device_channel = chan.get('DeviceChannel')
         if device_channel is None:
             raise DeviceError(
                 'Could not get required propertry \'DeviceChannel\' for channel \'%s\'', channel_id)
         return device_channel
+
+    def get_pid_channels(self, channel_id, chan):
+        """
+        Get PID channels (input 1 or 2, output 1 or 2) from string `pid` (e.g., '12' for input 1
+        and output 2), which is stored in channel definition `chan['PID']` for channel with ID
+        `channel_id`.
+        """
+        pid = chan.get('PID')
+        if pid is None:
+            raise DeviceError(
+                f'Could not get required propertry \'PID\' for channel \'{channel_id}\'')
+        try:
+            pid_channels = [int(pid[0]), int(pid[1])]
+        except ValueError:
+            raise DeviceError(
+                f'Invalid PID controller \'{pid}\' defined for channel \'{channel_id}\''
+                +' (in field \'PID\'; valid values: \'11\', \'12\', \'21\', \'22\')')
+        return pid_channels
 
     def get_values(self):
         """Read channels."""
@@ -412,6 +456,26 @@ class Device(dev_generic.Device):
             elif chan['Type'] == 'FastAnalogOut':
                 device_channel = self.get_device_channel(channel_id, chan)
                 value = self.get_fast_analog_output(device_channel)
+                readings[channel_id] = value
+            elif chan['Type'] == 'GlobalGain':
+                pid_channels = self.get_pid_channels(channel_id, chan)
+                value = self.get_kg(pid_channels[0], pid_channels[1])
+                readings[channel_id] = value
+            elif chan['Type'] == 'PGain':
+                pid_channels = self.get_pid_channels(channel_id, chan)
+                value = self.get_kp(pid_channels[0], pid_channels[1])
+                readings[channel_id] = value
+            elif chan['Type'] == 'IGain':
+                pid_channels = self.get_pid_channels(channel_id, chan)
+                value = self.get_ki(pid_channels[0], pid_channels[1])
+                readings[channel_id] = value
+            elif chan['Type'] == 'IIGain':
+                pid_channels = self.get_pid_channels(channel_id, chan)
+                value = self.get_kii(pid_channels[0], pid_channels[1])
+                readings[channel_id] = value
+            elif chan['Type'] == 'DGain':
+                pid_channels = self.get_pid_channels(channel_id, chan)
+                value = self.get_kd(pid_channels[0], pid_channels[1])
                 readings[channel_id] = value
             else:
                 raise DeviceError(
