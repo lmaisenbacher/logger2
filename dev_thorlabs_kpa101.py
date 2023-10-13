@@ -36,6 +36,10 @@ class Device(ThorlabsKPA101):
                 readings[channel_id] = self.xpos
             elif chan['Type'] == 'YPos':
                 readings[channel_id] = self.ypos
+            elif chan['Type'] == 'XPosPDP90A':
+                readings[channel_id] = self.xpos_pdp90a
+            elif chan['Type'] == 'YPosPDP90A':
+                readings[channel_id] = self.ypos_pdp90a
             else:
                 raise DeviceError(
                     f'Unknown channel type \'{chan["Type"]}\' for channel \'{channel_id}\''
