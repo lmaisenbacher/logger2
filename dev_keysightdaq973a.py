@@ -74,10 +74,12 @@ class Device(dev_generic.Device):
         device_channels = []
         for channel_id, chan in chans.items():
             device_channels.append(chan['DeviceChannel'])
-            chRange = chan["DeviceSpecificParams"]["Range"]
+            device_specific_params = chan.get('DeviceSpecificParams', {})
+            # ch_range = device_specific_params.get('Range')
+            chRange = device_specific_params.get('Range')
             if chan['Type'] == 'DCV':
                 # DC voltage
-                	# 6 1/2 digits resolution
+                # 6 1/2 digits resolution
                 chRes = chRange*1e-6
                 if (num_plc := chan["DeviceSpecificParams"].get('NPLC')) is not None:
                     self.visa_write(f'VOLT:DC:NPLC {num_plc:f},(@{chan["DeviceChannel"]})')
@@ -85,18 +87,20 @@ class Device(dev_generic.Device):
                     f'CONF:VOLT:DC {chRange:.12f},{chRes:.18f},(@{chan["DeviceChannel"]})')
             if chan['Type'] == 'ACV':
                 # AC voltage
-                	# 6 1/2 digits resolution
+                # 6 1/2 digits resolution
                 chRes = chRange*1e-6
                 cmd = f'CONF:VOLT:AC {chRange:.12f},{chRes:.18f},(@{chan["DeviceChannel"]})'
+                self.visa_write(cmd)
+            if chan['Type'] == 'RES':
+                # Resistance
+                # 6 1/2 digits resolution
+                chRes = chRange*1e-6
+                cmd = f'CONF:RES {chRange:.12f},{chRes:.18f},(@{chan["DeviceChannel"]})'
                 self.visa_write(cmd)
 #         # Temperature (J type thermocouple)
 #         if np.any(self.chans['Type']=='TEMPJ'):
 #             channelList = ','.join(['{:d}'.format(self.to_int(elem)) for elem in self.chans[self.chans['Type']=='TEMPJ']['DeviceChannel'].values])
 #             self.DAQclass.VISAwrite(self.connID, 'CONF:TEMP TC,J,(@{})'.format(channelList))
-#         # Resistance
-#         if np.any(self.chans['Type']=='RES'):
-#             channelList = ','.join(['{:d}'.format(self.to_int(elem)) for elem in self.chans[self.chans['Type']=='RES']['DeviceChannel'].values])
-#             self.DAQclass.VISAwrite(self.connID, 'CONF:RES (@{})'.format(channelList))
         device_channels = np.array(device_channels)
         # Configure scan
         device_channels_str = ','.join([f'{elem:d}' for elem in device_channels])
