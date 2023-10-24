@@ -75,27 +75,25 @@ class Device(dev_generic.Device):
         for channel_id, chan in chans.items():
             device_channels.append(chan['DeviceChannel'])
             device_specific_params = chan.get('DeviceSpecificParams', {})
-            # ch_range = device_specific_params.get('Range')
-            chRange = device_specific_params.get('Range')
+            ch_range = device_specific_params.get('Range')
+            ch_range_str = f'{ch_range:.12f},' if ch_range is not None else ''
+            if ch_range is not None:
+                # Set 6 1/2 digits resolution if not specified otherwise
+                ch_res = device_specific_params.get('Resolution', ch_range*1e-6)
+                ch_res_str = f'{ch_res:.18f},'
             if chan['Type'] == 'DCV':
                 # DC voltage
-                # 6 1/2 digits resolution
-                chRes = chRange*1e-6
                 if (num_plc := chan["DeviceSpecificParams"].get('NPLC')) is not None:
                     self.visa_write(f'VOLT:DC:NPLC {num_plc:f},(@{chan["DeviceChannel"]})')
                 self.visa_write(
-                    f'CONF:VOLT:DC {chRange:.12f},{chRes:.18f},(@{chan["DeviceChannel"]})')
+                    f'CONF:VOLT:DC {ch_range_str}{ch_res_str}(@{chan["DeviceChannel"]})')
             if chan['Type'] == 'ACV':
                 # AC voltage
-                # 6 1/2 digits resolution
-                chRes = chRange*1e-6
-                cmd = f'CONF:VOLT:AC {chRange:.12f},{chRes:.18f},(@{chan["DeviceChannel"]})'
+                cmd = f'CONF:VOLT:AC {ch_range_str}{ch_res_str}(@{chan["DeviceChannel"]})'
                 self.visa_write(cmd)
             if chan['Type'] == 'RES':
                 # Resistance
-                # 6 1/2 digits resolution
-                chRes = chRange*1e-6
-                cmd = f'CONF:RES {chRange:.12f},{chRes:.18f},(@{chan["DeviceChannel"]})'
+                cmd = f'CONF:RES {ch_range_str}{ch_res_str}(@{chan["DeviceChannel"]})'
                 self.visa_write(cmd)
 #         # Temperature (J type thermocouple)
 #         if np.any(self.chans['Type']=='TEMPJ'):
@@ -104,10 +102,6 @@ class Device(dev_generic.Device):
         device_channels = np.array(device_channels)
         # Configure scan
         device_channels_str = ','.join([f'{elem:d}' for elem in device_channels])
-        # print(device_channels_str)
-        # self.visa_write(f'ROUT:SCAN (@{device_channels_str})')
-        # logger.info(self.visa_query('ROUTE:SCAN:SIZE?'))
-        # logger.info(self.visa_query('ROUTE:SCAN?'))
         if len(chans) > 0:
             # Switch on channel number in returned data
             self.visa_write('FORM:READ:CHAN ON')
