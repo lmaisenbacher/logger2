@@ -521,7 +521,16 @@
                 {
                     "sensor":"x",
                     "unit":"V"
-                }
+                },
+				"Converter":
+				{
+					"Type":"polynomial",
+					"Coefficients":
+					{
+						"0":-1,
+						"1":2
+					}
+				}				
             }
 		}
 	}
