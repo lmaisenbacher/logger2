@@ -4,6 +4,7 @@ Multi-purpose data logging software.
 
 @author: Lothar Maisenbacher/Berkeley.
 """
+import numpy as np
 import configparser
 import json
 import time
@@ -167,6 +168,11 @@ if __name__ == "__main__":
         tags.update(channel.get("tags", {}))
         if 'Multiplier' in channel:
             value *= channel['Multiplier']
+        if 'Converter' in channel and channel['Converter'].get('Type') == 'polynomial':
+            coeffs_dict = channel['Converter'].get('Coefficients', {})
+            coeffs = np.array(list(coeffs_dict.values()))
+            exponents = np.array(list(coeffs_dict.keys())).astype(int)
+            value = np.sum(coeffs*value**exponents)
         json_body = [
             {
                 'measurement': device['measurement'],
