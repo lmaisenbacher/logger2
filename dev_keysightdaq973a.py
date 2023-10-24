@@ -122,14 +122,17 @@ class Device(dev_generic.Device):
         # print(self.visa_query(f'VOLT:DC:APER:ENAB? (@{self.device_channels_str})'))
         # print(self.visa_query(f'VOLT:DC:APER? (@{self.device_channels_str})'))
         values = data[::2]
-        chans_read = data[1::2].astype(int)
+        dev_chans_read = data[1::2].astype(int)
+        reading_by_dev_chan = {dev_chan: value for dev_chan, value in zip(dev_chans_read, values)}
         # print(values)
-        # print(chans_read)
-        if not np.all(np.isin(chans_read, self.device_channels)):
+        # print(dev_chans_read)
+        if not np.all(np.isin(dev_chans_read, self.device_channels)):
             msg = (
                 'Returned measurements (channel(s) {}) do not match requested channel(s) ({})'
-                .format(','.join([f'{elem:d}' for elem in chans_read]), self.device_channels_str))
+                .format(
+                    ','.join([f'{elem:d}' for elem in dev_chans_read]), self.device_channels_str))
             raise DeviceError(msg)
         readings = {
-            channel_id: value for channel_id, value in zip(self.device['Channels'].keys(), values)}
+            channel_id: reading_by_dev_chan[channel['DeviceChannel']]
+            for channel_id, channel in self.device['Channels'].items()}
         return readings
