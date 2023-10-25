@@ -180,7 +180,8 @@ if __name__ == "__main__":
                 'tags': tags
             }
         ]
-        logger.info('Channel \'%s\': %s', channel_id, value)
+        unit_str = ' '+tags.get('unit') if tags.get('unit') is not None else ''
+        logger.info('Channel \'%s\': %s%s', channel_id, value, unit_str)
         try:
             write_api.write(
                 DB_BUCKET, DB_ORG, json_body)
