@@ -9,7 +9,6 @@ Scripts
 tcl
 pip-selfcheck.json
 *.bak
-Pipfile.lock
 
 # Configuration files
 config*.ini
