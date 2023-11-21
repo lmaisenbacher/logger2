@@ -8,8 +8,8 @@ influxdb-client = "*"
 numpy = "*"
 requests = "*"
 pymodbus = "*"
-amodevices = {git = "git@github.com:lmaisenbacher/amodevices.git"}
-slapdash = {git = "git@github.com:lmaisenbacher/slapdash.git"}
+amodevices = {git = "https://github.com/lmaisenbacher/amodevices.git"}
+slapdash = "*"
 
 [dev-packages]
 
