@@ -10,6 +10,7 @@ requests = "*"
 pymodbus = "*"
 amodevices = {git = "https://github.com/lmaisenbacher/amodevices.git"}
 slapdash = "*"
+rpyc = "*"
 
 [dev-packages]
 

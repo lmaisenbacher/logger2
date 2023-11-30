@@ -14,6 +14,7 @@ Maintained by Lothar Maisenbacher (UC Berkeley), partly based on earlier softwar
 - `Cryomech CPA1110`: Cryomech CPA1110 helium compressor (using Modbus TCP protocol over ethernet interface)
 - `HighFinesse`: HighFinesse wavemeters (tested with models WS Ultimate 2 MC and WS/7) (through Windows DLL API communicating with wavemeter software)
 - `rp-lockbox`: Custom Red Pitaya lockbox [`rp-lockbox`](https://github.com/lmaisenbacher/rp-lockbox)
+- `pydase`: [`pydase`](https://github.com/tiqi-group/pydase) apps/plug-ins
 
 ## Preparation
 

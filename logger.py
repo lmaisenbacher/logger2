@@ -33,6 +33,7 @@ import dev_thorlabs_kpa101
 import dev_thorlabs_mdt693b
 import dev_thorlabs_pm100
 import dev_slapdash
+import dev_pydase
 
 logger = logging.getLogger()
 
@@ -92,6 +93,9 @@ def init_device(device):
     # Slapdash server
     if device['Model'] == 'Slapdash':
         device_instance = dev_slapdash.Device(device)
+    # pydase RPC server
+    if device['Model'] == 'pydase':
+        device_instance = dev_pydase.Device(device)
     # Unknown device
     if device_instance is None:
         msg = f'Unknown device model \'{device["Model"]}\''
