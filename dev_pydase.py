@@ -4,11 +4,10 @@ pydase apps/plug-ins.
 """
 
 import logging
-
+import rpyc
+import pint
 from amodevices.dev_generic import Device
 from amodevices.dev_exceptions import DeviceError
-
-import rpyc
 
 logger = logging.getLogger()
 
@@ -29,19 +28,19 @@ class Device(Device):
         try:
             conn = rpyc.connect(
                 self.device['Address'], self.device['Port'],
-                timeout=self.device.get('Timeout', 10))
+                config={'sync_request_timeout': self.device.get('Timeout', 10)})
             self._client = conn.root
         except ConnectionError as e:
             raise DeviceError(
-                f'Could not connect to Slapdash server of device \'{self.device["Device"]}\': {e}')
+                f'Could not connect to pydase server of device \'{self.device["Device"]}\': {e}')
 
     def get_values(self):
         """Read channels."""
         chans = self.device['Channels']
         readings = {}
         for channel_id, chan in chans.items():
-            if chan['Type'] in ['SlapdashAttribute']:
-                server_structure = chan['SlapdashServerStructure']
+            if chan['Type'] in ['pydaseAttribute']:
+                server_structure = chan['pydaseServerStructure']
                 if (subclass := server_structure.get('Subclass')) is not None:
                     object_ = getattr(self._client, subclass)
                     if (subclass_index := server_structure.get('SubclassIndex')) is not None:
@@ -49,7 +48,8 @@ class Device(Device):
                 else:
                     object_ = self._client
                 value = getattr(object_, server_structure['Attribute'])
-                readings[channel_id] = value
+                numerical_value = value.m if isinstance(value, pint.Quantity) else value
+                readings[channel_id] = numerical_value
             else:
                 raise DeviceError(
                     f'Unknown channel type \'{chan["Type"]}\' for channel \'{channel_id}\''
