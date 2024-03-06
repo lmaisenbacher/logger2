@@ -356,6 +356,35 @@
         }
     },
     {
+        "Device":"KJLC ACG",
+        "Model":"KJLC ACG",
+        "Address":"COM5",
+        "SerialConnectionParams":
+        {
+            "baudrate":9600,
+            "bytesize":8,
+            "stopbits":1,
+            "parity":"N"
+        },
+        "Timeout":1,
+        "ParallelReadout":true,
+        "tags":{},
+        "measurement":"vacuumgauge",
+        "Channels":
+        {
+            "pressure":
+            {
+                "Type":"Pressure",
+                "field-key":"pressure",
+                "tags":
+                {
+                    "sensor":"KJLC ACG capacitance manometer",
+                    "unit":"Torr"
+                }
+            }
+        }
+    },
+    {
         "Device":"HighFinesse WS/7 wavemeter",
         "Model":"HighFinesse",
         "tags":{},

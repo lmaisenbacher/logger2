@@ -24,6 +24,7 @@ import dev_keysightdaq973a
 import dev_smchrs012
 import dev_purpleair
 import dev_kjlc354
+import dev_kjlc_acg
 import dev_metonedr528
 import dev_srsctc100
 import dev_cryomechcpa1110
@@ -37,6 +38,7 @@ import dev_pydase
 logger = logging.getLogger()
 
 CONFIGPATH_DEFAULT = 'config.ini'
+
 
 def init_device(device):
     """
@@ -62,6 +64,9 @@ def init_device(device):
     # Kurt J. Lesker KJLC 354 series ion pressure gauge (via RS-485 port)
     if device['Model'] == 'KJLC 354':
         device_instance = dev_kjlc354.Device(device)
+    # Kurt J. Lesker KJLC ACG series ambient capacitance manometer (via RS-232 port)
+    if device['Model'] == 'KJLC ACG':
+        device_instance = dev_kjlc_acg.Device(device)
     # Met One DR-528 handheld particle counter (via RS-232 port)
     if device['Model'] == 'Met One DR-528':
         device_instance = dev_metonedr528.Device(device)
@@ -105,9 +110,11 @@ def init_device(device):
 
     return device_instance
 
+
 def _setup_logging():
     """Configure the application logging setup."""
     logging.basicConfig(level=logging.INFO)
+
 
 if __name__ == "__main__":
     _setup_logging()
@@ -116,7 +123,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='logger2 (https://github.com/lmaisenbacher/logger2)')
     parser.add_argument(
-        '-c','--config', dest='configpath', help='Path to configuration file', required=False,
+        '-c', '--config', dest='configpath', help='Path to configuration file', required=False,
         default=CONFIGPATH_DEFAULT)
     config_path = Path(parser.parse_args().configpath).absolute()
 
@@ -143,9 +150,9 @@ if __name__ == "__main__":
 
     # Set up database connection
     client = influxdb_client.InfluxDBClient(
-       url=DB_URL,
-       token=DB_TOKEN,
-       org=DB_ORG
+        url=DB_URL,
+        token=DB_TOKEN,
+        org=DB_ORG
     )
     write_api = client.write_api(write_options=SYNCHRONOUS)
 
@@ -164,7 +171,7 @@ if __name__ == "__main__":
         tags = {
             'device': device['Device'],
             **device['tags']
-            }
+        }
         tags.update(channel.get("tags", {}))
         if 'Multiplier' in channel:
             value *= channel['Multiplier']
@@ -188,7 +195,8 @@ if __name__ == "__main__":
         except InfluxDBError as e:
             logger.warning(f'Could not write to database: {e}')
 
-    logger.info('Reading device configuration from file \'%s\'', device_config_path)
+    logger.info('Reading device configuration from file \'%s\'',
+                device_config_path)
     try:
         with open(device_config_path) as device_config:
             devices = json.load(device_config)
@@ -213,7 +221,8 @@ if __name__ == "__main__":
                     try:
                         readings = instance.get_values()
                     except (LoggerError, DeviceError) as err:
-                        logger.error('Could not get measurement values. Error: %s', err.value)
+                        logger.error(
+                            'Could not get measurement values. Error: %s', err.value)
                         continue
                     for channel_id, value in readings.items():
                         write_value(device, channel_id, value)
