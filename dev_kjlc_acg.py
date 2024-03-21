@@ -30,7 +30,6 @@ class Device(dev_generic.Device):
             Configuration dict of the device to initialize.
         """
         super(Device, self).__init__(device)
-        # initialize I2C bus, used for display and ADS1115
         try:
             self.connection = serial.Serial(
                 device["Address"], timeout=device["Timeout"],
