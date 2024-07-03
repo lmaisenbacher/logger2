@@ -5,16 +5,18 @@ Maintained by Lothar Maisenbacher (UC Berkeley), partly based on earlier softwar
 
 ## Supported devices
 
-- `Keysight DAQ973A`: Keysight DAQ970A/973A multimeter (via VISA interface)
+- `Keysight DAQ973A`: Keysight DAQ970A/973A multimeter (through VISA interface)
 - `SMC HRS012-AN-10-T`: SMC HRS012-AN-10-T chiller (using RS-232 interface) (contributions by Jack Mango (UC Berkeley))
-- `PurpleAir`: PurpleAir air quality sensor/particle counters (via web API)
-- `KJLC 354`: Kurt J. Lesker KJLC 354 series ion pressure gauge and KJLC 300 series Pirani pressure gauge (using RS-485 interface) (contributions by Jack Mango (UC Berkeley))
-- `Met One DR-528`: Met One DR-528 handheld particle counter (using RS-232 interface) (contributed by Jack Mango (UC Berkeley))
-- `SRS CTC100`: Stanford Research Instruments CTC100 cryogenic temperature controller (using USB interface)
-- `Cryomech CPA1110`: Cryomech CPA1110 helium compressor (using Modbus TCP protocol over ethernet interface)
+- `PurpleAir`: PurpleAir air quality sensor/particle counters (through web API)
+- `KJLC 354`: Kurt J. Lesker KJLC 354 series ion pressure gauge and KJLC 300 series Pirani pressure gauge (through RS-485 interface) (contributions by Jack Mango (UC Berkeley))
+- `KJLC ACG`: Kurt J. Lesker KJLC ACG series ambient capacitance manometer (through RS-232 port) (contributed by Jack Mango (UC Berkeley))
+- `Met One DR-528`: Met One DR-528 handheld particle counter (through RS-232 interface) (contributed by Jack Mango (UC Berkeley))
+- `SRS CTC100`: Stanford Research Instruments CTC100 cryogenic temperature controller (through USB interface)
+- `Cryomech CPA1110`: Cryomech CPA1110 helium compressor (through Modbus TCP protocol over ethernet interface)
 - `HighFinesse`: HighFinesse wavemeters (tested with models WS Ultimate 2 MC and WS/7) (through Windows DLL API communicating with wavemeter software)
 - `rp-lockbox`: Custom Red Pitaya lockbox [`rp-lockbox`](https://github.com/lmaisenbacher/rp-lockbox)
 - `pydase`: [`pydase`](https://github.com/tiqi-group/pydase) apps/plug-ins
+- `SRSSIM922`: Stanford Research Instruments (SRS) SIM922 diode temperature monitor (through RS-232 port)
 
 ## Preparation
 
