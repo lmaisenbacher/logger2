@@ -27,8 +27,8 @@ class Device(SRSSIM922):
         readings = {}
         for channel_id, chan in chans.items():
             if chan['Type'] in ['Temperature'] \
-                    and chan['tags']['SRSSIM922ChannelName'] in ['1', '2', '3', '4']:
-                value = self.read_temperature(chan['tags']['SRSSIM922ChannelName'])
+                    and (device_channel := chan['DeviceChannel'] in ['1', '2', '3', '4']):
+                value = self.read_temperature(device_channel)
                 readings[channel_id] = value
             else:
                 raise DeviceError(

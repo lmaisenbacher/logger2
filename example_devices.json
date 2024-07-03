@@ -559,8 +559,49 @@
 						"0":-1,
 						"1":2
 					}
-				}				
+				}
             }
 		}
-	}
+	},
+    {
+        "Device": "Test cavity temperature sensors",
+        "Model": "SRS SIM922",
+        "Address": "COM19",
+        "SerialConnectionParams":
+            {
+                "baudrate": 9600,
+                "bytesize": 8,
+                "stopbits": 1,
+                "parity": "N"
+            },
+        "Timeout": 1,
+        "ParallelReadout": true,
+        "tags": {},
+        "measurement": "temperature",
+        "Channels":
+        {
+            "TempSensor1":
+            {
+                "Type": "Temperature",
+                "DeviceChannel":1,
+                "field-key": "temperature",
+                "tags":
+                {
+                    "sensor": "Incoupler front plate",
+                    "unit": "K"
+                }
+            },
+            "TempSensor2":
+            {
+                "Type": "Temperature",
+                "DeviceChannel":2,
+                "field-key": "temperature",
+                "tags":
+                {
+                    "sensor": "Outcoupler front plate",
+                    "unit": "K"
+                }
+            }
+        }
+    }
 ]
