@@ -26,8 +26,8 @@ class Device(SRSSIM922):
         chans = self.device['Channels']
         readings = {}
         for channel_id, chan in chans.items():
-            if chan['Type'] in ['Temperature'] \
-                    and (device_channel := chan['DeviceChannel'] in ['1', '2', '3', '4']):
+            if chan['Type'] == 'Temperature' \
+                    and (device_channel := chan['DeviceChannel']) in range(1, 5):
                 value = self.read_temperature(device_channel)
                 readings[channel_id] = value
             else:

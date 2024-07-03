@@ -40,7 +40,6 @@ logger = logging.getLogger()
 
 CONFIGPATH_DEFAULT = 'config.ini'
 
-
 def init_device(device):
     """
     Initialize the device and return an instance of the device class.
@@ -99,7 +98,7 @@ def init_device(device):
     if device['Model'] == 'pydase':
         device_instance = dev_pydase.Device(device)
     # Stanford Research Instruments (SRS) SIM922 diode temperature monitor (through RS-232 port)
-    if device['Model'] == 'SRSSIM922':
+    if device['Model'] == 'SRS SIM922':
         device_instance = dev_srs_sim922.Device(device)
     # Unknown device
     if device_instance is None:
