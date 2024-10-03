@@ -4,10 +4,13 @@ pydase apps/plug-ins.
 """
 
 import logging
-import rpyc
 import pint
 from amodevices.dev_generic import Device
 from amodevices.dev_exceptions import DeviceError
+from pydase import Client
+
+from aiohttp.client_exceptions import InvalidUrlClientError
+import socketio.exceptions
 
 logger = logging.getLogger()
 
@@ -26,13 +29,25 @@ class Device(Device):
     def connect(self):
         """Open connection to server."""
         try:
-            conn = rpyc.connect(
-                self.device['Address'], self.device['Port'],
-                config={'sync_request_timeout': self.device.get('Timeout', 10)})
-            self._client = conn.root
-        except ConnectionError as e:
+            client = Client(
+                url=f'ws://{self.device["Address"]}:{self.device["Port"]}',
+                block_until_connected=True,
+                sio_client_kwargs={
+                    'reconnection_attempts': 1,
+                    })
+        except socketio.exceptions.ConnectionError as e:
+            msg = (
+                'Encountered `socketio.exceptions.ConnectionError` error '
+                +f'while connecting to server: {e}')
             raise DeviceError(
-                f'Could not connect to pydase server of device \'{self.device["Device"]}\': {e}')
+                f'Could not connect to pydase server of device \'{self.device["Device"]}\': {msg}')
+        except InvalidUrlClientError as e:
+            msg = (
+                'Encountered `aiohttp.client_exceptions.InvalidUrlClientError` error '
+                +f'while connecting to server: {e}')
+            raise DeviceError(
+                f'Could not connect to pydase server of device \'{self.device["Device"]}\': {msg}')
+        self._client = client.proxy
 
     def get_values(self):
         """Read channels."""
@@ -47,9 +62,9 @@ class Device(Device):
                         object_ = object_[subclass_index]
                 else:
                     object_ = self._client
-                value = getattr(object_, server_structure['Attribute'])
-                numerical_value = value.m if isinstance(value, pint.Quantity) else value
-                readings[channel_id] = numerical_value
+                value_raw = getattr(object_, server_structure['Attribute'])
+                numerical_value = value_raw.m if isinstance(value_raw, pint.Quantity) else value_raw
+                readings[channel_id] = float(numerical_value)
             else:
                 raise DeviceError(
                     f'Unknown channel type \'{chan["Type"]}\' for channel \'{channel_id}\''

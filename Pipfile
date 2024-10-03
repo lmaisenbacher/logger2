@@ -9,7 +9,7 @@ numpy = "*"
 requests = "*"
 pymodbus = "*"
 amodevices = {git = "https://github.com/lmaisenbacher/amodevices.git"}
-rpyc = "*"
+pydase = "*"
 pint = "*"
 
 [dev-packages]

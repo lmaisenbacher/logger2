@@ -1,0 +1,6 @@
+influxdb-client
+numpy
+requests
+pymodbus
+git+https://github.com/lmaisenbacher/amodevices.git#egg=amodevices
+pydase==0.10.6
