@@ -14,27 +14,27 @@ Maintained by Lothar Maisenbacher (UC Berkeley), partly based on earlier softwar
 - `SRS CTC100`: Stanford Research Instruments CTC100 cryogenic temperature controller (through USB interface)
 - `Cryomech CPA1110`: Cryomech CPA1110 helium compressor (through Modbus TCP protocol over ethernet interface)
 - `HighFinesse`: HighFinesse wavemeters (tested with models WS Ultimate 2 MC and WS/7) (through Windows DLL API communicating with wavemeter software)
-- `rp-lockbox`: Custom Red Pitaya lockbox [`rp-lockbox`](https://github.com/lmaisenbacher/rp-lockbox)
-- `pydase`: [`pydase`](https://github.com/tiqi-group/pydase) apps/plug-ins
+- `rp-lockbox`: Custom Red Pitaya lockbox [rp-lockbox](https://github.com/lmaisenbacher/rp-lockbox)
+- `pydase`: [pydase](https://github.com/tiqi-group/pydase) apps/plug-ins
 - `SRS SIM922`: Stanford Research Instruments (SRS) SIM922 diode temperature monitor (through RS-232 port)
 
 ## Preparation
 
-### Installing `pipenv`
+### Installing pipenv
 
-[`pipenv`](https://pipenv.pypa.io/) is used to create a virtual environment and install the required packages for `logger2`. `pipenv` keeps track of all dependencies (i.e., required Python packages) in the file `Pipfile` in the repository.
+[pipenv](https://pipenv.pypa.io/) is used to create a virtual environment and install the required packages for logger2. pipenv keeps track of all dependencies (i.e., required Python packages) in the file "Pipfile" in the repository.
 
-The `pipenv` documentation recommends installing it as a user-package with `pip install --user pipenv`. When running `logger2` as a service/daemon, make sure that it is run under the user that `pipenv` was installed for, as it will not be found otherwise.
+The pipenv documentation recommends installing it as a user-package with `pip install --user pipenv`. When running logger2 as a service/daemon, make sure that it is run under the user that pipenv was installed for, as it will not be found otherwise.
 
 ### Installing dependencies
 
-Once `pipenv` is installed, the required dependencies of `logger2` can be installed in a virtual environment, which will be created if not already present, by navigating to the directory where `Pipfile` is located (here just the repository itself) and running
+Once pipenv is installed, the required dependencies of logger2 can be installed in a virtual environment, which will be created if not already present, by navigating to the directory where "Pipfile" is located (here just the repository itself) and running
 
 ```
 pipenv install
 ```
 
-It might be desirable to use the option `--skip-lock` for the above command, which always uses `Pipfile` to resolve the requirements and not `Pipfile.lock`, and does not write an updated `Pipfile.lock`. This might be necessary when switching between different system architectures (e.g., Windows on AMD64 to Linux on Raspberry Pi).
+It might be desirable to use the option `--skip-lock` for the above command, which always uses "Pipfile" to resolve the requirements and not "Pipfile.lock", and does not write an updated "Pipfile.lock". This might be necessary when switching between different system architectures (e.g., Windows on AMD64 to Linux on Raspberry Pi).
 
 To check whether the dependencies have been installed correctly, one can run Python in the newly created environment with
 
@@ -44,21 +44,39 @@ pipenv run python
 
 and import the dependencies there.
 
-On Raspberry Pi, importing `numpy` might not work right away, as compiled libraries are missing. Following https://github.com/numpy/numpy/issues/16012#issuecomment-615927988, these libraries can be installed with
+On Raspberry Pi, importing numpy might not work right away, as compiled libraries are missing. Following https://github.com/numpy/numpy/issues/16012#issuecomment-615927988, these libraries can be installed with
 
 ```
 sudo apt-get install libatlas-base-dev
 ```
 
+### Forcing upgrade of package amodevices
+
+Currently, the custom package amodevices is installed not from PyPI, but from its [GitHub repo](https://github.com/lmaisenbacher/amodevices).
+This may lead, when using pipenv and pip to reinstall packages (to, e.g., upgrade to the newest version), to not always the latest commit from the repo being used.
+
+To force pip to upgrade amodevices to the latest commit, use
+
+```
+pip install git+https://github.com/lmaisenbacher/amodevices.git#egg=amodevices --force-reinstall
+```
+
+When using pipenv, first open the pipenv shell (again in the directory where Pipfile is located) and then run the pip command
+
+```
+pipenv shell
+pip install git+https://github.com/lmaisenbacher/amodevices.git#egg=amodevices --force-reinstall
+```
+
 ### Adapting configuration
 
-The logger uses two configuration files. `config.ini` contains the configuration of the database access, the update interval of the logger, and where the device configuration file is located. An example of a `config.ini` is included in the repository as `example_config.ini`. The device configuration file is a JSON files that lists which devices and which channels on the given devices are read by the logger. An example device configuration file is included as `example_devices.json`.
+The logger uses two configuration files. "config.ini" contains the configuration of the database access, the update interval of the logger, and where the device configuration file is located. An example of a "config.ini" is included in the repository as "example_config.ini". The device configuration file is a JSON files that lists which devices and which channels on the given devices are read by the logger. An example device configuration file is included as "example_devices.json".
 
-By default, the logger will look for `config.ini` in the current working directory. To use a specific `config.ini`, use the command line option `-c` to define the path to that file, e.g., `python logger.py -c /path/to/config.ini`.
+By default, the logger will look for "config.ini" in the current working directory. To use a specific "config.ini", use the command line option `-c` to define the path to that file, e.g., `python logger.py -c /path/to/config.ini`.
 
 ## Running the logger
 
-### Using `pipenv`
+### Using pipenv
 
 To run the logger in the newly created virtual environment, use
 
@@ -66,13 +84,13 @@ To run the logger in the newly created virtual environment, use
 pipenv run python logger.py
 ```
 
-The file `run.bat` in the repository just contains this line for convenience.
+The file "run.bat" in the repository just contains this line for convenience.
 
 ### As a service/daemon under Linux
 
 The logger can be run as a system service, or daemon, in the background, also allowing it to be launched automatically after booting.
 
-First, create a new daemon configuration file, here named `logger-chiller.service` to read out the temperatures of a laser chiller, using
+First, create a new daemon configuration file, here named "logger-chiller.service" to read out the temperatures of a laser chiller, using
 
 ```
 sudo nano /etc/systemd/system/logger-chiller.service
@@ -96,7 +114,7 @@ User=rp-chiller
 WantedBy=multi-user.target
 ```
 
-Importantly, the daemon is run under the user `rp-chiller`, as given by `User=rp-chiller`, which is the user for which `pipenv` was installed here. Also important is to define the working directory with `WorkingDirectory=...` to be the directory where the virtual environment of `pipenv` was initialized, and where the configuration file `config.ini` and the device JSON file defined in that configuration file are located, which here is just the directory of the repository itself. To use a different `config.ini` - and the device JSON defined in that `config.ini` - use the `-c` command line argument, e.g., to use `home/rp-chiller/Coding/logger2-config/chiller/config.ini`:
+Importantly, the daemon is run under the user "rp-chiller", as given by `User=rp-chiller`, which is the user for which pipenv was installed here. Also important is to define the working directory with `WorkingDirectory=...` to be the directory where the virtual environment of pipenv was initialized, and where the configuration file "config.ini" and the device JSON file defined in that configuration file are located, which here is just the directory of the repository itself. To use a different "config.ini" - and the device JSON defined in that "config.ini" - use the `-c` command line argument, e.g., to use "home/rp-chiller/Coding/logger2-config/chiller/config.ini":
 
 ```
 ExecStart=/home/rp-chiller/.local/bin/pipenv run python /home/rp-chiller/Coding/logger2/logger.py -c /home/rp-chiller/Coding/logger2-config/chiller/config.ini
