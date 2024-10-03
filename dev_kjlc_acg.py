@@ -17,7 +17,6 @@ from amodevices.dev_exceptions import DeviceError
 
 logger = logging.getLogger()
 
-
 class Device(dev_generic.Device):
 
     MANTISSA_LIST = [1.0, 1.1, 2.0, 2.5, 5.0]

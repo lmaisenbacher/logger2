@@ -34,11 +34,11 @@ import dev_thorlabs_kpa101
 import dev_thorlabs_mdt693b
 import dev_thorlabs_pm100
 import dev_pydase
+import dev_srs_sim922
 
 logger = logging.getLogger()
 
 CONFIGPATH_DEFAULT = 'config.ini'
-
 
 def init_device(device):
     """
@@ -97,6 +97,9 @@ def init_device(device):
     # pydase RPC server
     if device['Model'] == 'pydase':
         device_instance = dev_pydase.Device(device)
+    # Stanford Research Instruments (SRS) SIM922 diode temperature monitor (through RS-232 port)
+    if device['Model'] == 'SRS SIM922':
+        device_instance = dev_srs_sim922.Device(device)
     # Unknown device
     if device_instance is None:
         msg = f'Unknown device model \'{device["Model"]}\''
