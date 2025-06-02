@@ -95,10 +95,10 @@ class Device(dev_generic.Device):
                 # Resistance
                 cmd = f'CONF:RES {ch_range_str}{ch_res_str}(@{chan["DeviceChannel"]})'
                 self.visa_write(cmd)
-        # # Temperature (J type thermocouple)
-        # if np.any(self.chans['Type']=='TEMPJ'):
-        #     channelList = ','.join(['{:d}'.format(self.to_int(elem)) for elem in self.chans[self.chans['Type']=='TEMPJ']['DeviceChannel'].values])
-        #     self.DAQclass.VISAwrite(self.connID, 'CONF:TEMP TC,J,(@{})'.format(channelList))
+            if chan['Type'] == 'TEMPT':
+                # T-type thermocouple
+                cmd = f'CONF:TEMP:TCouple T,(@{chan["DeviceChannel"]})'
+                self.visa_write(cmd)
         device_channels = np.array(device_channels)
         # Configure scan
         device_channels_str = ','.join([f'{elem:d}' for elem in device_channels])
