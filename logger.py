@@ -6,11 +6,11 @@ Multi-purpose data logging software.
 """
 import numpy as np
 import configparser
-import json
 import time
 import logging
 import argparse
 from pathlib import Path
+from ruamel.yaml import YAML
 
 from defs import LoggerError
 from amodevices.dev_exceptions import DeviceError
@@ -200,9 +200,10 @@ if __name__ == "__main__":
 
     logger.info('Reading device configuration from file \'%s\'',
                 device_config_path)
+    yaml = YAML(typ='safe')
     try:
         with open(device_config_path) as device_config:
-            devices = json.load(device_config)
+            devices = yaml.load(device_config)
     except FileNotFoundError as e:
         msg = f'Could not read device configuration file \'{device_config_path}\': {e}'
         logger.error(msg)
