@@ -11,6 +11,7 @@ pymodbus = "*"
 amodevices = {git = "https://github.com/lmaisenbacher/amodevices.git"}
 pydase = "0.10.6"
 pint = "*"
+ruamel.yaml = "*"
 
 [dev-packages]
 
