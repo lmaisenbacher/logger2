@@ -7,11 +7,11 @@ name = "pypi"
 influxdb-client = "*"
 numpy = "*"
 requests = "*"
-pymodbus = "*"
+pymodbus = "3.6.1"
 amodevices = {git = "https://github.com/lmaisenbacher/amodevices.git"}
 pydase = "0.10.6"
 pint = "*"
-ruamel.yaml = "*"
+"ruamel.yaml" = "*"
 
 [dev-packages]
 
