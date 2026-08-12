@@ -144,7 +144,7 @@ if __name__ == "__main__":
     DB_BUCKET = CONF["Database"]["bucket"]
     DB_ORG = CONF["Database"]["org"]
     DB_TOKEN = CONF["Database"]["token"]
-    UPDATE_INTERVAL = int(CONF["Update"]["interval"])
+    UPDATE_INTERVAL = float(CONF["Update"]["interval"])
     TIMEOUT = int(CONF["Devices"]["timeout"])
 
     device_config_path = Path(CONF["Devices"]["configpath"])
