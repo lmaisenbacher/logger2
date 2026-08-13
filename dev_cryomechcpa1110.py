@@ -89,7 +89,9 @@ class Device(dev_generic.Device):
     def set_compressor_state(self, state):
         """Switch compressor on (`state` is True) or off (`state` is False)."""
         value = 1 if state else 255
-        write = self.client.write_register(value, 1, slave=self.device_id)
+        result = self.client.write_register(1, value, device_id=self.device_id)
+        if result.isError():
+            raise DeviceError("Modbus error when setting compressor state")
 
     def get_values(self):
         """Read channels."""
