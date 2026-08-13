@@ -55,7 +55,7 @@ class Device(dev_generic.Device):
             else:
                 raise DeviceError("Modbus connection not open")
         try:
-            values = self.client.read_input_registers(register, 1, slave=self.device_id)
+            values = self.client.read_input_registers(register, 1, device_id=self.device_id)
         except ModbusException as e:
             raise DeviceError(f"Encountered Modbus exception when trying to read register: '{e}'")
         if values.isError():
