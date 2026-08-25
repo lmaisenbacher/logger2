@@ -3,17 +3,21 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
 
+# In production, logger2 runs from the shared ~/venvs/unitrap
+# environment (uv project), not from a pipenv environment. This file
+# documents logger2's direct dependencies; version floors match the
+# shared environment's installed packages.
 [packages]
-influxdb-client = "*"
-numpy = "*"
-requests = "*"
-pymodbus = "3.6.1"
+influxdb-client = ">=1.50.0"
+numpy = ">=2.4.0"
+requests = ">=2.34.0"
+pymodbus = ">=3.14.0"
 amodevices = {git = "https://github.com/lmaisenbacher/amodevices.git"}
-pydase = "0.10.6"
-pint = "*"
-"ruamel.yaml" = "*"
+pydase = ">=0.10.21"
+pint = ">=0.24.4,<0.25.0"
+"ruamel.yaml" = ">=0.19.1"
 
 [dev-packages]
 
 [requires]
-python_version = "3"
+python_version = "3.13"
