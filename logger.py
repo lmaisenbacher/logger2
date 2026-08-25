@@ -117,7 +117,12 @@ def init_device(device):
 
 def _setup_logging():
     """Configure the application logging setup."""
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s.%(msecs)03d | %(levelname)-8s | '
+               '%(name)s:%(funcName)s:%(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
 
 
 if __name__ == "__main__":
