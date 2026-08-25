@@ -10,14 +10,17 @@ import time
 import json
 import logging
 import argparse
+import atexit
 from pathlib import Path
+from types import SimpleNamespace
 from ruamel.yaml import YAML
 
 from defs import LoggerError
 from amodevices.dev_exceptions import DeviceError
 
+import urllib3
 import influxdb_client
-from influxdb_client.client.write_api import SYNCHRONOUS
+from influxdb_client.client.write_api import SYNCHRONOUS, WriteOptions, WriteType
 from influxdb_client.client.exceptions import InfluxDBError
 
 # Device modules
@@ -40,6 +43,25 @@ import dev_srs_sim922
 logger = logging.getLogger()
 
 CONFIGPATH_DEFAULT = 'config.ini'
+
+# Errors a database write can raise: catching only `InfluxDBError` would
+# let a transport failure (DNS, refused connection, timeout) crash the
+# polling loop.
+DB_WRITE_ERRORS = (InfluxDBError, urllib3.exceptions.HTTPError)
+
+# Interval between clock-sync heartbeat points (s); see
+# `heartbeat_if_due()`
+CLOCK_HEARTBEAT_INTERVAL_S = 10.0
+
+# Client-side flush interval of the batching write api (ms). Small
+# enough to keep Grafana fresh and to bound the data lost on a hard
+# kill.
+DB_BATCH_FLUSH_INTERVAL_MS = 200
+
+# Maximum time `WriteApi.close()` may block draining the batch buffer at
+# shutdown (ms); the influxdb-client default is 5 minutes, which would
+# hang shutdown on an unreachable database.
+DB_BATCH_MAX_CLOSE_WAIT_MS = 5_000
 
 def init_device(device):
     """
@@ -158,6 +180,15 @@ if __name__ == "__main__":
     DB_TOKEN = CONF["Database"]["token"]
     UPDATE_INTERVAL = float(CONF["Update"]["interval"])
     TIMEOUT = int(CONF["Devices"]["timeout"])
+    # 'synchronous' (default): one blocking HTTP request per cycle.
+    # 'batching': buffer client-side and flush every
+    # DB_BATCH_FLUSH_INTERVAL_MS on influxdb-client's worker threads —
+    # a slow or unreachable database then never blocks device polling.
+    DB_WRITE_MODE = CONF["Database"].get("write_mode", "synchronous").lower()
+    if DB_WRITE_MODE not in ("synchronous", "batching"):
+        msg = f'Unknown [Database] write_mode \'{DB_WRITE_MODE}\''
+        logger.error(msg)
+        raise LoggerError(msg)
 
     device_config_path = Path(CONF["Devices"]["configpath"])
     # If path to `devices.json` is relative, use directory of `config.ini`
@@ -170,7 +201,53 @@ if __name__ == "__main__":
         token=DB_TOKEN,
         org=DB_ORG
     )
-    write_api = client.write_api(write_options=SYNCHRONOUS)
+    # Heartbeat writes always use a synchronous api (see
+    # `heartbeat_if_due`); it doubles as the data path in synchronous
+    # mode.
+    write_api_sync = client.write_api(write_options=SYNCHRONOUS)
+    if DB_WRITE_MODE == 'batching':
+
+        def _on_write_error(conf, data, exception):
+            logger.warning(
+                'Could not write batch to InfluxDB database: %s', exception)
+
+        def _on_write_retry(conf, data, exception):
+            logger.warning(
+                'Retrying InfluxDB batch write after error: %s', exception)
+
+        # No lock around `write()`: unlike the pydase servers, logger2
+        # is single-threaded, so only one thread ever pushes into the
+        # batching api's buffer.
+        write_api = client.write_api(
+            write_options=WriteOptions(
+                write_type=WriteType.batching,
+                flush_interval=DB_BATCH_FLUSH_INTERVAL_MS,
+                max_close_wait=DB_BATCH_MAX_CLOSE_WAIT_MS),
+            error_callback=_on_write_error,
+            retry_callback=_on_write_retry)
+    else:
+        write_api = write_api_sync
+
+    _db_closed = SimpleNamespace(done=False)
+
+    def _close_db():
+        """Drain and close the database connection (idempotent).
+        `WriteApi.flush()` is a no-op stub in influxdb-client 1.50.0,
+        so closing is the only way to drain the batch buffer — bounded
+        by DB_BATCH_MAX_CLOSE_WAIT_MS."""
+        if _db_closed.done:
+            return
+        _db_closed.done = True
+        try:
+            write_api.close()
+            if write_api_sync is not write_api:
+                write_api_sync.close()
+            client.close()
+        except Exception as e:
+            logger.warning('Error closing database connection: %s', e)
+
+    # Best-effort backstop; the main loop closes explicitly on exit
+    atexit.register(_close_db)
 
     # Per-cycle log thinning: the service wrapper redirects output to a
     # file that is never rotated, so per-reading lines at the update
@@ -196,9 +273,53 @@ if __name__ == "__main__":
                 LOG_FIRST_N, key, LOG_EVERY_M)
         return count <= LOG_FIRST_N or count % LOG_EVERY_M == 0, count
 
-    def write_value(device, channel_id, value):
+    # Clock-sync heartbeat, as in the pydase servers: every
+    # CLOCK_HEARTBEAT_INTERVAL_S, one point per device carrying this
+    # host's clock in the `client_time_ns` field and — deliberately —
+    # NO explicit timestamp, so the database stamps `_time` at
+    # ingestion with ITS clock. `_time − client_time_ns` is then the
+    # host-vs-database clock offset (plus one-way network latency),
+    # e.g. for a Grafana panel that catches an unsynced PC and for
+    # re-shifting its data offline. Written even when a device read
+    # fails: a heartbeat means "logger running and database reachable",
+    # independent of data.
+    heartbeats = {}
+
+    def heartbeat_if_due(device):
+        """Write the clock-sync heartbeat for `device` if its interval
+        has elapsed. Always a SYNCHRONOUS write: the semantics (written
+        == database reachable, ingestion-stamped `_time`) do not
+        survive buffering or client-side retries. On failure the point
+        is discarded and the next attempt waits a full interval —
+        unlike the pydase servers, which retry at the next call, the
+        write here runs ON the polling thread, and an unreachable
+        database would otherwise stall every cycle on the heartbeat's
+        connection attempts instead of one cycle per interval."""
+        hb = heartbeats.setdefault(device['Device'], SimpleNamespace(
+            last=float('-inf'), interval_s=CLOCK_HEARTBEAT_INTERVAL_S))
+        if time.monotonic() - hb.last < hb.interval_s:
+            return
+        hb.last = time.monotonic()
+        json_body = [{
+            'measurement': device['measurement'],
+            'fields': {'client_time_ns': time.time_ns()},
+            'tags': {
+                'device': device['Device'],
+                **device['tags'],
+                'sensor': 'Clock sync',
+            },
+        }]
+        try:
+            write_api_sync.write(DB_BUCKET, DB_ORG, json_body)
+        except DB_WRITE_ERRORS as e:
+            logger.warning(
+                'Could not write clock-sync heartbeat to InfluxDB '
+                'database: %s', e)
+
+    def build_point(device, channel_id, value, time_ns):
         """
-        Write a new measured value to the InfluxDB database.
+        Build the InfluxDB point for a new measured value, or return
+        None for a non-finite value.
 
         device : dict
             Configuration dict of the device.
@@ -206,6 +327,10 @@ if __name__ == "__main__":
             ID of the measurement channel.
         value : float
             Measured value.
+        time_ns : int
+            Timestamp of the poll (ns since epoch), recorded into the
+            point — stamped at read time, so a buffered or retried
+            write cannot skew the time series.
         """
         channel = device['Channels'][channel_id]
         tags = {
@@ -230,22 +355,16 @@ if __name__ == "__main__":
                 logger.info('Channel \'%s\': %s%s — not written '
                             '(reading %d)', channel_id, value, unit_str,
                             count)
-            return
-        json_body = [
-            {
-                'measurement': device['measurement'],
-                'fields': {channel['field-key']: value},
-                'tags': tags
-            }
-        ]
+            return None
         if show:
             logger.info('Channel \'%s\': %s%s (reading %d)',
                         channel_id, value, unit_str, count)
-        try:
-            write_api.write(
-                DB_BUCKET, DB_ORG, json_body)
-        except InfluxDBError as e:
-            logger.warning(f'Could not write to database: {e}')
+        return {
+            'measurement': device['measurement'],
+            'fields': {channel['field-key']: value},
+            'tags': tags,
+            'time': int(time_ns),
+        }
 
     logger.info('Reading device configuration from file \'%s\'',
                 device_config_path)
@@ -268,6 +387,7 @@ if __name__ == "__main__":
 
         try:
 
+            points = []
             for device, instance in zip(devices, device_instances):
                 show, count = log_this_reading(device['Device'])
                 if show:
@@ -278,6 +398,9 @@ if __name__ == "__main__":
                     else:
                         logger.info('Reading device: \'%s\' (poll %d)',
                                     device['Device'], count)
+                # Before the device read, so a failing read does not
+                # skip the heartbeat
+                heartbeat_if_due(device)
                 if device.get('ParallelReadout', True):
                     try:
                         readings = instance.get_values()
@@ -285,8 +408,14 @@ if __name__ == "__main__":
                         logger.error(
                             'Could not get measurement values. Error: %s', err.value)
                         continue
-                    for channel_id, value in readings.items():
-                        write_value(device, channel_id, value)
+                    # One timestamp per poll: all channels of a device
+                    # read share it
+                    time_ns = time.time_ns()
+                    points.extend(
+                        point for channel_id, value in readings.items()
+                        if (point := build_point(
+                            device, channel_id, value, time_ns))
+                        is not None)
                 # else:
                 #     for current_channel in current_device["Channels"]:
                 #         try:
@@ -297,7 +426,20 @@ if __name__ == "__main__":
                 #             continue
                 #         write_value(current_device, current_channel, measured_value)
 
+            if points:
+                # Batching mode: this only pushes into the client-side
+                # buffer (microseconds) — the HTTP requests happen on
+                # influxdb-client's worker threads, so a slow database
+                # never stalls the polling. Synchronous mode: ONE
+                # request per cycle instead of one per channel.
+                try:
+                    write_api.write(DB_BUCKET, DB_ORG, points)
+                except DB_WRITE_ERRORS as e:
+                    logger.warning(f'Could not write to database: {e}')
+
             time.sleep(UPDATE_INTERVAL)
 
         except KeyboardInterrupt:
             break
+
+    _close_db()

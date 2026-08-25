@@ -74,6 +74,21 @@ The logger uses two configuration files. "config.ini" contains the configuration
 
 By default, the logger will look for "config.ini" in the current working directory. To use a specific "config.ini", use the command line option `-c` to define the path to that file, e.g., `python logger.py -c /path/to/config.ini`.
 
+## Database writing
+
+Points are written to InfluxDB once per update cycle. Every point carries an explicit timestamp taken when its device was read (all channels of one device poll share it), so the recorded time series is independent of any write delay or buffering.
+
+The `[Database]` option `write_mode` in "config.ini" selects how writes happen:
+
+- `synchronous` (default): one blocking HTTP request per update cycle.
+- `batching`: points are buffered client-side and flushed every 200 ms by influxdb-client's worker threads, with automatic retries on failure. A slow or unreachable database then never blocks device polling. The buffer is drained at shutdown (bounded at 5 s).
+
+Non-finite values (NaN/Inf) are never written - InfluxDB has no representation for them; a gap in the series marks them, and the log records each skipped reading.
+
+### Clock-sync heartbeat
+
+Every 10 s, one heartbeat point per device is written to that device's measurement, tagged `sensor="Clock sync"`. It carries this host's clock in the field `client_time_ns` and - deliberately - no explicit timestamp, so the database stamps `_time` at ingestion with its own clock: `_time - client_time_ns` is then the host-vs-database clock offset (plus one-way network latency). The [unitrap-pydase-apps](https://github.com/matterwaves/unitrap-pydase-apps) servers use the same convention, so all hosts appear on one clock-offset panel. Heartbeats are written synchronously even in batching mode (a written heartbeat means the database was reachable at that moment) and are sent even while a device read fails - they indicate the logger and database are alive, independent of data.
+
 ## Running the logger
 
 ### Using pipenv
