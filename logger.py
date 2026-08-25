@@ -63,6 +63,15 @@ DB_BATCH_FLUSH_INTERVAL_MS = 200
 # hang shutdown on an unreachable database.
 DB_BATCH_MAX_CLOSE_WAIT_MS = 5_000
 
+# Pace of re-initialization/reconnection attempts for a failed device (s)
+RECONNECT_INTERVAL_S = 10.0
+
+# Consecutive read failures after which a device is benched for
+# reconnection: a one-off glitch costs nothing, while a dead connection
+# stops producing per-cycle errors (at most a few log lines per
+# RECONNECT_INTERVAL_S, even at fast update intervals)
+READ_FAIL_STREAK_BACKOFF = 3
+
 def init_device(device):
     """
     Initialize the device and return an instance of the device class.
@@ -380,15 +389,93 @@ if __name__ == "__main__":
         msg = f'Could not read device configuration file \'{device_config_path}\': {e}'
         logger.error(msg)
         raise LoggerError(msg)
-    device_instances = []
-    for i_device, device in enumerate(devices):
-        device_instances.append(init_device(device))
+    # One supervision record per device. The loop must survive ANY
+    # device failure — this is an unattended fleet logger, and the
+    # other devices' data plus the heartbeat beat purity: device
+    # modules can raise raw transport exceptions (not just
+    # DeviceError/LoggerError), and a crash here takes down every
+    # device of this logger. A device whose initialization, connection,
+    # or reads fail is benched and retried every RECONNECT_INTERVAL_S;
+    # a service restart is not the reconnect mechanism.
+    device_states = []
+    for device in devices:
+        try:
+            instance = init_device(device)
+        except Exception:
+            logger.exception(
+                'Could not initialize device \'%s\'', device['Device'])
+            instance = None
+        device_states.append(SimpleNamespace(
+            instance=instance, alive=instance is not None,
+            fail_streak=0, bench_count=0, last_attempt=float('-inf')))
+
+    def ensure_device(state, device):
+        """Return the device instance to read this cycle, or None.
+
+        Re-runs a failed initialization and reconnects a benched
+        device, at most every RECONNECT_INTERVAL_S; in between, the
+        device is skipped (its heartbeat is unaffected — it needs only
+        the config dict).
+        """
+        if state.instance is not None and state.alive:
+            return state.instance
+        if time.monotonic() - state.last_attempt < RECONNECT_INTERVAL_S:
+            return None
+        state.last_attempt = time.monotonic()
+        if state.instance is not None and state.bench_count >= 2:
+            # Benched again without a successful read in between: the
+            # first reconnect did not help (some modules open their
+            # transport in __init__ and their connect() is a no-op) —
+            # escalate to a full re-initialization.
+            try:
+                state.instance.close()
+            except Exception:
+                pass
+            state.instance = None
+        if state.instance is None:
+            try:
+                state.instance = init_device(device)
+            except Exception:
+                logger.exception(
+                    'Could not initialize device \'%s\'',
+                    device['Device'])
+                state.instance = None
+                return None
+            state.alive = True
+            state.fail_streak = 0
+            logger.info('Initialized device \'%s\'', device['Device'])
+            return state.instance
+        # Benched: reconnect. Close first — drivers generally do not
+        # close the old handle in connect(), and a still-held serial
+        # port would refuse to re-open.
+        try:
+            state.instance.close()
+        except Exception:
+            pass
+        try:
+            state.instance.connect()
+        except Exception as e:
+            logger.warning('Could not reconnect device \'%s\': %s',
+                           device['Device'], e)
+            return None
+        state.alive = True
+        state.fail_streak = 0
+        logger.info('Reconnected device \'%s\'', device['Device'])
+        return state.instance
+
     while True:
 
         try:
 
             points = []
-            for device, instance in zip(devices, device_instances):
+            for device, state in zip(devices, device_states):
+                # Before the device read (and independent of the
+                # device's health): the heartbeat means "logger up +
+                # database reachable"
+                heartbeat_if_due(device)
+                instance = ensure_device(state, device)
+                if instance is None:
+                    continue
                 show, count = log_this_reading(device['Device'])
                 if show:
                     if device.get('Address') is not None:
@@ -398,24 +485,43 @@ if __name__ == "__main__":
                     else:
                         logger.info('Reading device: \'%s\' (poll %d)',
                                     device['Device'], count)
-                # Before the device read, so a failing read does not
-                # skip the heartbeat
-                heartbeat_if_due(device)
                 if device.get('ParallelReadout', True):
                     try:
                         readings = instance.get_values()
+                        # One timestamp per poll: all channels of a
+                        # device read share it
+                        time_ns = time.time_ns()
+                        new_points = [
+                            point
+                            for channel_id, value in readings.items()
+                            if (point := build_point(
+                                device, channel_id, value, time_ns))
+                            is not None]
                     except (LoggerError, DeviceError) as err:
                         logger.error(
                             'Could not get measurement values. Error: %s', err.value)
-                        continue
-                    # One timestamp per poll: all channels of a device
-                    # read share it
-                    time_ns = time.time_ns()
-                    points.extend(
-                        point for channel_id, value in readings.items()
-                        if (point := build_point(
-                            device, channel_id, value, time_ns))
-                        is not None)
+                        state.fail_streak += 1
+                    except Exception:
+                        logger.exception(
+                            'Unexpected error reading device \'%s\' — '
+                            'device-module bug or lost connection',
+                            device['Device'])
+                        state.fail_streak += 1
+                    else:
+                        state.fail_streak = 0
+                        # Only a successful READ proves the device
+                        # healthy again (a no-op connect() does not)
+                        state.bench_count = 0
+                        points.extend(new_points)
+                    if state.fail_streak >= READ_FAIL_STREAK_BACKOFF:
+                        state.alive = False
+                        state.bench_count += 1
+                        state.last_attempt = time.monotonic()
+                        logger.warning(
+                            'Device \'%s\': %d consecutive read '
+                            'failures — pausing reads, reconnecting '
+                            'every %.0f s', device['Device'],
+                            state.fail_streak, RECONNECT_INTERVAL_S)
                 # else:
                 #     for current_channel in current_device["Channels"]:
                 #         try:

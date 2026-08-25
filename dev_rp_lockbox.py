@@ -32,7 +32,9 @@ class Device(dev_generic.Device):
         try:
             self._socket.connect((
                 self.device['Address'], self.device['SCPIConnectionParams']['Port']))
-        except socket.timeout as err:
+        except OSError as err:
+            # OSError covers timeout, refused connection, and DNS
+            # failure alike — anything else would crash init_device
             raise DeviceError(f'Failed to connect to socket. Error: {err}')
 
     def __del__(self):
@@ -51,10 +53,22 @@ class Device(dev_generic.Device):
         """
         msg = ''
         while 1:
-            chunk = self._socket.recv(chunksize + len(self.delimiter)).decode('utf-8')
+            try:
+                chunk = self._socket.recv(
+                    chunksize + len(self.delimiter)).decode('utf-8')
+            except OSError as err:
+                raise DeviceError(
+                    f'{self.device["Device"]}: Failed to receive from '
+                    f'socket. Error: {err}')
+            if not chunk:
+                # recv returning b'' means the peer closed the
+                # connection — without this the loop would spin forever
+                raise DeviceError(
+                    f'{self.device["Device"]}: Connection closed by '
+                    f'device')
             # Receive chunk size of 2^n preferably
             msg += chunk
-            if chunk and chunk[-2:] == self.delimiter:
+            if chunk[-2:] == self.delimiter:
                 break
         logger.debug("RX: %s", msg[:-2])
         return msg[:-2]
