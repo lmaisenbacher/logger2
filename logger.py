@@ -2,7 +2,7 @@
 """
 Multi-purpose data logging software.
 
-@author: Lothar Maisenbacher/Berkeley.
+@author: Lothar Maisenbacher/UC Berkeley.
 """
 import numpy as np
 import configparser
@@ -115,10 +115,10 @@ def init_device(device):
     return device_instance
 
 
-def _setup_logging():
+def _setup_logging(level=logging.INFO):
     """Configure the application logging setup."""
     logging.basicConfig(
-        level=logging.INFO,
+        level=level,
         format='%(asctime)s.%(msecs)03d | %(levelname)-8s | '
                '%(name)s:%(funcName)s:%(lineno)d - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
@@ -126,15 +126,22 @@ def _setup_logging():
 
 
 if __name__ == "__main__":
-    _setup_logging()
-
     # Parse input arguments
     parser = argparse.ArgumentParser(
         description='logger2 (https://github.com/lmaisenbacher/logger2)')
     parser.add_argument(
         '-c', '--config', dest='configpath', help='Path to configuration file', required=False,
         default=CONFIGPATH_DEFAULT)
-    config_path = Path(parser.parse_args().configpath).absolute()
+    parser.add_argument(
+        '-v', '--verbose', action='store_true',
+        help='Log every reading (disable log thinning) and enable '
+             'DEBUG-level output')
+    args = parser.parse_args()
+    VERBOSE = args.verbose
+
+    _setup_logging(logging.DEBUG if VERBOSE else logging.INFO)
+
+    config_path = Path(args.configpath).absolute()
 
     # Read config file
     logger.info('Reading configuration from file \'%s\'', config_path)
@@ -165,6 +172,30 @@ if __name__ == "__main__":
     )
     write_api = client.write_api(write_options=SYNCHRONOUS)
 
+    # Per-cycle log thinning: the service wrapper redirects output to a
+    # file that is never rotated, so per-reading lines at the update
+    # interval reach GB over time. The first LOG_FIRST_N readings of each channel (and
+    # polls of each device) are logged in full — the service log shows
+    # the startup working — then only every LOG_EVERY_Mth, announced at
+    # the transition. Warnings and errors are never thinned.
+    LOG_FIRST_N = 10
+    LOG_EVERY_M = 100
+    log_counts = {}
+
+    def log_this_reading(key):
+        """Count reading `key` and decide whether to log it; announce
+        the thinning once, in place of the first suppressed reading.
+        With `-v`, every reading is logged."""
+        count = log_counts[key] = log_counts.get(key, 0) + 1
+        if VERBOSE:
+            return True, count
+        if count == LOG_FIRST_N + 1:
+            logger.info(
+                'First %d readings of \'%s\' logged — from here only '
+                'every %dth is shown (run with -v to log every reading)',
+                LOG_FIRST_N, key, LOG_EVERY_M)
+        return count <= LOG_FIRST_N or count % LOG_EVERY_M == 0, count
+
     def write_value(device, channel_id, value):
         """
         Write a new measured value to the InfluxDB database.
@@ -189,6 +220,17 @@ if __name__ == "__main__":
             coeffs = np.array(list(coeffs_dict.values()))
             exponents = np.array(list(coeffs_dict.keys())).astype(int)
             value = np.sum(coeffs*value**exponents)
+        unit_str = ' '+tags.get('unit') if tags.get('unit') is not None else ''
+        show, count = log_this_reading(f'{device["Device"]}/{channel_id}')
+        if isinstance(value, (float, np.floating)) and not np.isfinite(value):
+            # InfluxDB's line protocol has no NaN/Inf representation —
+            # influxdb-client would silently drop the field anyway, so
+            # skip the write explicitly and say so.
+            if show:
+                logger.info('Channel \'%s\': %s%s — not written '
+                            '(reading %d)', channel_id, value, unit_str,
+                            count)
+            return
         json_body = [
             {
                 'measurement': device['measurement'],
@@ -196,8 +238,9 @@ if __name__ == "__main__":
                 'tags': tags
             }
         ]
-        unit_str = ' '+tags.get('unit') if tags.get('unit') is not None else ''
-        logger.info('Channel \'%s\': %s%s', channel_id, value, unit_str)
+        if show:
+            logger.info('Channel \'%s\': %s%s (reading %d)',
+                        channel_id, value, unit_str, count)
         try:
             write_api.write(
                 DB_BUCKET, DB_ORG, json_body)
@@ -226,11 +269,15 @@ if __name__ == "__main__":
         try:
 
             for device, instance in zip(devices, device_instances):
-                if device.get('Address') is not None:
-                    logger.info(
-                        'Reading device: \'%s\' at \'%s\'', device['Device'], device['Address'])
-                else:
-                    logger.info('Reading device: \'%s\'', device['Device'])
+                show, count = log_this_reading(device['Device'])
+                if show:
+                    if device.get('Address') is not None:
+                        logger.info(
+                            'Reading device: \'%s\' at \'%s\' (poll %d)',
+                            device['Device'], device['Address'], count)
+                    else:
+                        logger.info('Reading device: \'%s\' (poll %d)',
+                                    device['Device'], count)
                 if device.get('ParallelReadout', True):
                     try:
                         readings = instance.get_values()
