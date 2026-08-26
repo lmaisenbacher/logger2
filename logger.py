@@ -408,7 +408,8 @@ if __name__ == "__main__":
             instance = init_device(device)
         except Exception:
             logger.exception(
-                'Could not initialize device \'%s\'', device['Device'])
+                'Could not initialize device \'%s\' — retrying every '
+                '%.0f s', device['Device'], RECONNECT_INTERVAL_S)
             instance = None
         device_states.append(SimpleNamespace(
             instance=instance, alive=instance is not None,
@@ -442,8 +443,8 @@ if __name__ == "__main__":
                 state.instance = init_device(device)
             except Exception:
                 logger.exception(
-                    'Could not initialize device \'%s\'',
-                    device['Device'])
+                    'Could not initialize device \'%s\' — retrying every '
+                    '%.0f s', device['Device'], RECONNECT_INTERVAL_S)
                 state.instance = None
                 return None
             state.alive = True
@@ -460,8 +461,9 @@ if __name__ == "__main__":
         try:
             state.instance.connect()
         except Exception as e:
-            logger.warning('Could not reconnect device \'%s\': %s',
-                           device['Device'], e)
+            logger.warning('Could not reconnect device \'%s\': %s — '
+                           'retrying every %.0f s',
+                           device['Device'], e, RECONNECT_INTERVAL_S)
             return None
         state.alive = True
         state.fail_streak = 0
