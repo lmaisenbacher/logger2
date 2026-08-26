@@ -72,6 +72,11 @@ RECONNECT_INTERVAL_S = 10.0
 # RECONNECT_INTERVAL_S, even at fast update intervals)
 READ_FAIL_STREAK_BACKOFF = 3
 
+# Rate limit for cycle-overrun warnings (s): chronic overruns (device
+# reads slower than the configured interval) must be visible without
+# flooding the log
+OVERRUN_WARN_INTERVAL_S = 60.0
+
 def init_device(device):
     """
     Initialize the device and return an instance of the device class.
@@ -463,6 +468,8 @@ if __name__ == "__main__":
         logger.info('Reconnected device \'%s\'', device['Device'])
         return state.instance
 
+    next_cycle = time.monotonic()
+    last_overrun_warning = float("-inf")
     while True:
 
         try:
@@ -543,7 +550,27 @@ if __name__ == "__main__":
                 except DB_WRITE_ERRORS as e:
                     logger.warning(f'Could not write to database: {e}')
 
-            time.sleep(UPDATE_INTERVAL)
+            # Fixed-rate schedule: cycles run on an absolute time grid,
+            # so the configured interval is the true sampling period —
+            # sleeping a fixed amount AFTER the cycle's work would
+            # stretch the period by the device read time (serial
+            # instruments cost hundreds of ms per cycle). A cycle that
+            # overruns its slot skips the missed slots (no catch-up
+            # bursts); overruns are logged, rate-limited.
+            next_cycle += UPDATE_INTERVAL
+            now = time.monotonic()
+            if now > next_cycle:
+                overrun = now - next_cycle
+                skipped = int(overrun // UPDATE_INTERVAL) + 1
+                next_cycle += skipped * UPDATE_INTERVAL
+                if now - last_overrun_warning >= OVERRUN_WARN_INTERVAL_S:
+                    last_overrun_warning = now
+                    logger.warning(
+                        'Cycle overran the %.3g s interval by %.0f ms — '
+                        'skipping %d slot(s); the device reads take '
+                        'longer than the configured interval',
+                        UPDATE_INTERVAL, overrun * 1e3, skipped)
+            time.sleep(max(0.0, next_cycle - time.monotonic()))
 
         except KeyboardInterrupt:
             break
