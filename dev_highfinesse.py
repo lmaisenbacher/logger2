@@ -4,6 +4,9 @@ This module contains drivers for the HighFinesse wavemeters
 (tested with models WS Ultimate 2 MC and WS/7),
 which are interfaced through a Windows DLL API.
 The wavemeter software must be running on the same PC.
+A 'Frequency' channel logs in the DLL-native THz by default; set the
+channel's `Unit` to 'GHz' to log GHz instead (keep the channel's
+'unit' tag consistent with this choice).
 """
 
 import numpy as np
@@ -26,6 +29,14 @@ class Device(dev_generic.Device):
             Configuration dict of the device to initialize.
         """
         super(Device, self).__init__(device)
+        # Fail fast on a bad per-channel 'Unit' — a typo must surface at
+        # startup, not as silently misscaled data
+        for channel_id, chan in device['Channels'].items():
+            unit = chan.get('Unit', 'THz')
+            if unit not in ('THz', 'GHz'):
+                raise DeviceError(
+                    f'Unknown \'Unit\' \'{unit}\' for channel \'{channel_id}\''
+                    +f' of device \'{device["Device"]}\' (\'THz\' or \'GHz\')')
         # 'ReadOnce' (default False): report each wavemeter measurement only
         # once — repeat polls before a new measurement completes yield NaN
         # (dropped by the logger), so a pulsed laser gets one point per shot
@@ -72,6 +83,10 @@ class Device(dev_generic.Device):
         for channel_id, chan in chans.items():
             if chan['Type'] == 'Frequency':
                 value = self.get_frequency()
+                # The DLL reports THz; 'Unit': 'GHz' logs GHz instead
+                # (NaN stays NaN and is dropped by the logger)
+                if chan.get('Unit', 'THz') == 'GHz':
+                    value = value*1e3
                 readings[channel_id] = value
             else:
                 raise DeviceError(
