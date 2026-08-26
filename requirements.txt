@@ -1,7 +1,0 @@
-influxdb-client
-numpy
-requests
-pymodbus
-ruamel.yaml
-git+https://github.com/lmaisenbacher/amodevices.git#egg=amodevices
-pydase==0.10.6
