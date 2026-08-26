@@ -1,5 +1,5 @@
 # Copyright (c) 2018, Fabian Schmid, Edward Wang
-# Copyright (c) 2023, Lothar Maisenbacher
+# Copyright (c) 2023-2026, Lothar Maisenbacher
 #
 # All rights reserved.
 #
@@ -13,6 +13,7 @@ import dev_rp_lockbox
 logger = logging.getLogger()
 
 device = {
+    'Device': 'Red Pitaya lockbox',
     'Address': '192.168.50.33',
     'Timeout': 1.,
     'SCPIConnectionParams': {
