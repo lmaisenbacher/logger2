@@ -52,10 +52,16 @@ class Wavemeter():
     """Class for the wavemeter. Emits newExposures, newLevels, newWavenumber and
     newDeviationSignal Qt signals."""
 
-    def __init__(self, library_path=r"C:\Windows\System32\wlmData.dll"):
+    def __init__(self, library_path=r"C:\Windows\System32\wlmData.dll", read_once=False):
         """Load the wavelength meter library and connect to the device software.
 
         :library_path: path to the wavelength meter library
+        :read_once: if True, each measurement result can be read only once:
+                    until the wavemeter completes a NEW measurement, further
+                    calls to `get_frequency` return ErrNoValue (0) instead of
+                    repeating the last result. Use this to log each shot of a
+                    pulsed laser exactly once by polling faster than the pulse
+                    repetition rate.
         """
         super().__init__()
         self.device_present = False
@@ -71,8 +77,9 @@ class Wavemeter():
             self.wlm_lib.GetWavelengthNum.restype = ctypes.c_double
             self.wlm_lib.GetDeviationSignal.restype = ctypes.c_double
             self.wlm_lib.GetDeviationReference.restype = ctypes.c_double
+            self.wlm_lib.GetPulseMode.restype = ctypes.c_ushort
 
-            retval = self.wlm_lib.Instantiate(cInstResetCalc, 0, 0, 0)
+            retval = self.wlm_lib.Instantiate(cInstResetCalc, 1 if read_once else 0, 0, 0)
             if retval == 0:
                 msg = "Could not instantiate wavelength meter. Is the software running?"
                 LOG.error(msg)
@@ -202,6 +209,19 @@ class Wavemeter():
             LOG.warning("get_frequency() called for non-present HighFinesse wavemeter.")
             return None
         return self.wlm_lib.GetFrequencyNum(1, ctypes.c_double(0))
+
+    def get_pulse_mode(self):
+        """Return the current measurement mode of the wavemeter software.
+
+        :returns: the mode as reported by `GetPulseMode`: 0 for continuous
+                  wave (CW), nonzero for one of the pulsed modes (numbering
+                  depends on the device version, see manual section
+                  4.1.2.4), or None if the device is not present
+        """
+        if not self.device_present:
+            LOG.warning("get_pulse_mode() called for non-present HighFinesse wavemeter.")
+            return None
+        return self.wlm_lib.GetPulseMode(ctypes.c_ushort(0))
 
     def get_automatic_exposure(self):
         """Return if automatic exposure is enabled.
