@@ -34,17 +34,27 @@ class Device(dev_generic.Device):
         # software (0 = CW, nonzero = a pulsed mode, numbering per manual
         # section 4.1.2.4). Checked, not set: the logger must not override a
         # mode an operator chose in the wavemeter GUI, only refuse to log in
-        # the wrong one. The raised error benches the device, so logging
-        # starts by itself once the mode is corrected.
-        expected_mode = device.get('PulseMode')
-        actual_mode = self.wavemeter.get_pulse_mode()
+        # the wrong one. The check repeats on every read, so a mode switched
+        # mid-run benches the device instead of logging mislabeled data;
+        # either way logging resumes by itself once the mode is corrected.
+        self.expected_pulse_mode = device.get('PulseMode')
         logger.info(
-            'Wavemeter software measurement mode: %s (0 = CW, nonzero = pulsed)', actual_mode)
-        if expected_mode is not None and actual_mode != expected_mode:
+            'Wavemeter software measurement mode: %s (0 = CW, nonzero = pulsed)',
+            self.wavemeter.get_pulse_mode())
+        self.check_pulse_mode()
+
+    def check_pulse_mode(self):
+        """Raise `DeviceError` if the wavemeter software is not in the
+        measurement mode expected by the device configuration."""
+        if self.expected_pulse_mode is None:
+            return
+        actual_mode = self.wavemeter.get_pulse_mode()
+        if actual_mode != self.expected_pulse_mode:
             raise DeviceError(
                 f'Wavemeter software is in measurement mode {actual_mode}, but mode '
-                f'{expected_mode} is expected (\'PulseMode\' in device configuration). '
-                f'Select the correct mode in the \'Pulse\' group of the wavemeter software.')
+                f'{self.expected_pulse_mode} is expected (\'PulseMode\' in device '
+                f'configuration). Select the correct mode in the \'Pulse\' group of the '
+                f'wavemeter software.')
 
     def get_frequency(self):
         """Read current laser frequency."""
@@ -56,6 +66,7 @@ class Device(dev_generic.Device):
 
     def get_values(self):
         """Read channels."""
+        self.check_pulse_mode()
         chans = self.device['Channels']
         readings = {}
         for channel_id, chan in chans.items():
