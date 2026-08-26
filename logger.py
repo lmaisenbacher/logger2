@@ -475,13 +475,20 @@ if __name__ == "__main__":
         try:
 
             points = []
+            # Per-device wall time of this cycle — names the culprit
+            # in the overrun warning
+            device_times = {}
             for device, state in zip(devices, device_states):
+                t_device = time.monotonic()
+                device_times[device['Device']] = 0.0
                 # Before the device read (and independent of the
                 # device's health): the heartbeat means "logger up +
                 # database reachable"
                 heartbeat_if_due(device)
                 instance = ensure_device(state, device)
                 if instance is None:
+                    device_times[device['Device']] = (
+                        time.monotonic() - t_device)
                     continue
                 show, count = log_this_reading(device['Device'])
                 if show:
@@ -538,6 +545,7 @@ if __name__ == "__main__":
                 #             LOG.error("Could not get measurement value. Error: %s", err)
                 #             continue
                 #         write_value(current_device, current_channel, measured_value)
+                device_times[device['Device']] = time.monotonic() - t_device
 
             if points:
                 # Batching mode: this only pushes into the client-side
@@ -565,11 +573,13 @@ if __name__ == "__main__":
                 next_cycle += skipped * UPDATE_INTERVAL
                 if now - last_overrun_warning >= OVERRUN_WARN_INTERVAL_S:
                     last_overrun_warning = now
+                    breakdown = ', '.join(
+                        f'\'{name}\' {dt:.2f} s' for name, dt in sorted(
+                            device_times.items(), key=lambda kv: -kv[1]))
                     logger.warning(
                         'Cycle overran the %.3g s interval by %.0f ms — '
-                        'skipping %d slot(s); the device reads take '
-                        'longer than the configured interval',
-                        UPDATE_INTERVAL, overrun * 1e3, skipped)
+                        'skipping %d slot(s); per-device cycle time: %s',
+                        UPDATE_INTERVAL, overrun * 1e3, skipped, breakdown)
             time.sleep(max(0.0, next_cycle - time.monotonic()))
 
         except KeyboardInterrupt:

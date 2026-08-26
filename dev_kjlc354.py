@@ -60,7 +60,10 @@ class Device(dev_generic.Device):
         n_write_bytes = self.connection.write(query)
         if n_write_bytes != len(query):
             raise DeviceError("Failed to write to device")
-        rsp = self.connection.readline()
+        # The gauge terminates its response with CR (no LF) —
+        # `readline()` would wait for the full serial timeout on every
+        # read instead of returning at the terminator
+        rsp = self.connection.read_until(b"\r")
         try:
             rsp = rsp.decode(encoding="ASCII")
         except UnicodeDecodeError:
