@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 This module contains drivers for the HighFinesse wavemeters
-(tested with models WS Ultimate 2 MC and WS/7),
+(tested with model WS/7),
 which are interfaced through a Windows DLL API.
 The wavemeter software must be running on the same PC.
 The hardware driver is `amodevices.HighFinesseWS` (which consumes the
