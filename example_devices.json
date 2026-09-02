@@ -528,41 +528,57 @@
         }
     },
     {
-        "Device":"Cavity mirror piezo controller",
-        "Model":"Slapdash",
-		"Address":"localhost",
-		"Port":8001,
+        "Device":"Example pydase server readout",
+        "Model":"pydase",
+        "Address":"localhost",
+        "Port":8001,
         "tags":{},
-        "measurement":"piezocontroller",
-        "Timeout":1,
+        "measurement":"examplemeasurement",
+        "Timeout":10,
         "Channels":
         {
-            "Voltage x-axis":
+            "Attribute of a named subservice":
             {
-				"Type":"SlapdashAttribute",
-				"SlapdashServerStructure":
-				{
-					"Attribute":"voltage",
-					"Subclass":"channel_x"
-				},
+                "Type":"pydaseAttribute",
+                "pydaseServerStructure":
+                {
+                    "Attribute":"voltage",
+                    "Subclass":"channel_x"
+                },
                 "field-key":"voltage",
                 "tags":
                 {
                     "sensor":"x",
                     "unit":"V"
                 },
-				"Converter":
-				{
-					"Type":"polynomial",
-					"Coefficients":
-					{
-						"0":-1,
-						"1":2
-					}
-				}
+                "Converter":
+                {
+                    "Type":"polynomial",
+                    "Coefficients":
+                    {
+                        "0":-1,
+                        "1":2
+                    }
+                }
+            },
+            "Attribute of a subservice list entry":
+            {
+                "Type":"pydaseAttribute",
+                "pydaseServerStructure":
+                {
+                    "Attribute":"position",
+                    "Subclass":"channels",
+                    "SubclassIndex":0
+                },
+                "field-key":"rotation",
+                "tags":
+                {
+                    "sensor":"First channel",
+                    "unit":"deg"
+                }
             }
-		}
-	},
+        }
+    },
     {
         "Device": "Test cavity temperature sensors",
         "Model": "SRS SIM922",
