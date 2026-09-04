@@ -4,7 +4,6 @@ Multi-purpose data logging software.
 
 @author: Lothar Maisenbacher/UC Berkeley.
 """
-import numpy as np
 import configparser
 import time
 import json
@@ -16,6 +15,8 @@ from types import SimpleNamespace
 from ruamel.yaml import YAML
 
 from defs import LoggerError
+from readings import (channels_missing_status, check_status_config,
+                      reading_fields)
 from amodevices.dev_exceptions import DeviceError
 
 import urllib3
@@ -77,6 +78,48 @@ READ_FAIL_STREAK_BACKOFF = 3
 # flooding the log
 OVERRUN_WARN_INTERVAL_S = 60.0
 
+# Device model (the 'Model' key of a device configuration) → module class
+DEVICE_CLASSES = {
+    # Keysight DAQ970A/973A multimeter (via VISA interface)
+    'Keysight DAQ973A': dev_keysightdaq973a.Device,
+    # SMC HRS012-AN-10-T chiller (via RS-232 port)
+    'SMC HRS012-AN-10-T': dev_smchrs012.Device,
+    # PurpleAir air quality sensor/particle counters (via web API)
+    'PurpleAir': dev_purpleair.Device,
+    # Kurt J. Lesker KJLC 354 series ion pressure gauge (via RS-485 port)
+    'KJLC 354': dev_kjlc354.Device,
+    # Kurt J. Lesker KJLC ACG series ambient capacitance manometer (via RS-232 port)
+    'KJLC ACG': dev_kjlc_acg.Device,
+    # Met One DR-528 handheld particle counter (via RS-232 port)
+    'Met One DR-528': dev_metonedr528.Device,
+    # Stanford Research Instruments CTC100 cryogenic temperature controller
+    # (via USB interface/virtual serial port)
+    'SRS CTC100': dev_srsctc100.Device,
+    # Cryomech CPA1110 helium compressor
+    # (using Modbus TCP protocol over ethernet interface)
+    'Cryomech CPA1110': dev_cryomechcpa1110.Device,
+    # HighFinesse wavemeter (using Windows DLL API)
+    'HighFinesse': dev_highfinesse.Device,
+    # Red Pitaya lockbox (rp-lockbox)
+    'rp-lockbox': dev_rp_lockbox.Device,
+    # Thorlabs KPA101 beam position aligner
+    'Thorlabs KPA101': dev_thorlabs_kpa101.Device,
+    # Thorlabs MDT693B piezo controller
+    'Thorlabs MDT693B': dev_thorlabs_mdt693b.Device,
+    # Thorlabs PM100 power meter
+    'Thorlabs PM100': dev_thorlabs_pm100.Device,
+    # pydase RPC server
+    'pydase': dev_pydase.Device,
+    # Stanford Research Instruments (SRS) SIM922 diode temperature monitor (through RS-232 port)
+    'SRS SIM922': dev_srs_sim922.Device,
+}
+
+
+def device_class(device):
+    """The module class for `device`'s 'Model', or None when unknown."""
+    return DEVICE_CLASSES.get(device['Model'])
+
+
 def init_device(device):
     """
     Initialize the device and return an instance of the device class.
@@ -87,61 +130,12 @@ def init_device(device):
     logger.info(
         'Trying to initialize device \'%s\' of model \'%s\'', device['Device'], device['Model'])
 
-    device_instance = None
-
-    # Keysight DAQ970A/973A multimeter (via VISA interface)
-    if device['Model'] == 'Keysight DAQ973A':
-        device_instance = dev_keysightdaq973a.Device(device)
-    # SMC HRS012-AN-10-T chiller (via RS-232 port)
-    if device['Model'] == 'SMC HRS012-AN-10-T':
-        device_instance = dev_smchrs012.Device(device)
-    # PurpleAir air quality sensor/particle counters (via web API)
-    if device['Model'] == 'PurpleAir':
-        device_instance = dev_purpleair.Device(device)
-    # Kurt J. Lesker KJLC 354 series ion pressure gauge (via RS-485 port)
-    if device['Model'] == 'KJLC 354':
-        device_instance = dev_kjlc354.Device(device)
-    # Kurt J. Lesker KJLC ACG series ambient capacitance manometer (via RS-232 port)
-    if device['Model'] == 'KJLC ACG':
-        device_instance = dev_kjlc_acg.Device(device)
-    # Met One DR-528 handheld particle counter (via RS-232 port)
-    if device['Model'] == 'Met One DR-528':
-        device_instance = dev_metonedr528.Device(device)
-    # Stanford Research Instruments CTC100 cryogenic temperature controller
-    # (via USB interface/virtual serial port)
-    if device['Model'] == 'SRS CTC100':
-        device_instance = dev_srsctc100.Device(device)
-    # Cryomech CPA1110 helium compressor
-    # (using Modbus TCP protocol over ethernet interface)
-    if device['Model'] == 'Cryomech CPA1110':
-        device_instance = dev_cryomechcpa1110.Device(device)
-    # HighFinesse wavemeter
-    # (using Windows DLL API)
-    if device['Model'] == 'HighFinesse':
-        device_instance = dev_highfinesse.Device(device)
-    # Red Pitaya lockbox (rp-lockbox)
-    if device['Model'] == 'rp-lockbox':
-        device_instance = dev_rp_lockbox.Device(device)
-    # Thorlabs KPA101 beam position aligner
-    if device['Model'] == 'Thorlabs KPA101':
-        device_instance = dev_thorlabs_kpa101.Device(device)
-    # Thorlabs KPA101 beam position aligner
-    if device['Model'] == 'Thorlabs MDT693B':
-        device_instance = dev_thorlabs_mdt693b.Device(device)
-    # Thorlabs PM100 power meter
-    if device['Model'] == 'Thorlabs PM100':
-        device_instance = dev_thorlabs_pm100.Device(device)
-    # pydase RPC server
-    if device['Model'] == 'pydase':
-        device_instance = dev_pydase.Device(device)
-    # Stanford Research Instruments (SRS) SIM922 diode temperature monitor (through RS-232 port)
-    if device['Model'] == 'SRS SIM922':
-        device_instance = dev_srs_sim922.Device(device)
-    # Unknown device
-    if device_instance is None:
+    cls = device_class(device)
+    if cls is None:
         msg = f'Unknown device model \'{device["Model"]}\''
         logger.error(msg)
         raise LoggerError(msg)
+    device_instance = cls(device)
 
     try:
         device_instance.connect()
@@ -298,6 +292,8 @@ if __name__ == "__main__":
     # fails: a heartbeat means "logger running and database reachable",
     # independent of data.
     heartbeats = {}
+    # (device, channel) pairs already warned about a missing status
+    status_warned = set()
 
     def heartbeat_if_due(device):
         """Write the clock-sync heartbeat for `device` if its interval
@@ -330,17 +326,19 @@ if __name__ == "__main__":
                 'Could not write clock-sync heartbeat to InfluxDB '
                 'database: %s', e)
 
-    def build_point(device, channel_id, value, time_ns):
+    def build_point(device, channel_id, reading, time_ns):
         """
-        Build the InfluxDB point for a new measured value, or return
-        None for a non-finite value.
+        Build the InfluxDB point for a channel's new reading, or return
+        None when nothing of it is writable.
 
         device : dict
             Configuration dict of the device.
         channel_id : str
             ID of the measurement channel.
-        value : float
-            Measured value.
+        reading : float | str | dict
+            The channel's value, or a dict of fields for the row (the
+            channel's own field plus companions such as the status
+            text — see `readings`).
         time_ns : int
             Timestamp of the poll (ns since epoch), recorded into the
             point — stamped at read time, so a buffered or retried
@@ -352,30 +350,32 @@ if __name__ == "__main__":
             **device['tags']
         }
         tags.update(channel.get("tags", {}))
-        if 'Multiplier' in channel:
-            value *= channel['Multiplier']
-        if 'Converter' in channel and channel['Converter'].get('Type') == 'polynomial':
-            coeffs_dict = channel['Converter'].get('Coefficients', {})
-            coeffs = np.array(list(coeffs_dict.values()))
-            exponents = np.array(list(coeffs_dict.keys())).astype(int)
-            value = np.sum(coeffs*value**exponents)
+        own_key = channel['field-key']
+        # Transforms applied, non-finite floats dropped field by field
+        # (InfluxDB's line protocol has no NaN/Inf representation —
+        # influxdb-client would silently drop them anyway)
+        fields = reading_fields(channel, reading)
         unit_str = ' '+tags.get('unit') if tags.get('unit') is not None else ''
         show, count = log_this_reading(f'{device["Device"]}/{channel_id}')
-        if isinstance(value, (float, np.floating)) and not np.isfinite(value):
-            # InfluxDB's line protocol has no NaN/Inf representation —
-            # influxdb-client would silently drop the field anyway, so
-            # skip the write explicitly and say so.
+        if not fields:
             if show:
+                raw = (reading.get(own_key) if isinstance(reading, dict)
+                       else reading)
                 logger.info('Channel \'%s\': %s%s — not written '
-                            '(reading %d)', channel_id, value, unit_str,
+                            '(reading %d)', channel_id, raw, unit_str,
                             count)
             return None
         if show:
+            own = (f'{fields[own_key]}{unit_str}' if own_key in fields
+                   else 'no value')
+            companions = ''.join(f', {key} {value}'
+                                 for key, value in fields.items()
+                                 if key != own_key)
             logger.info('Channel \'%s\': %s%s (reading %d)',
-                        channel_id, value, unit_str, count)
+                        channel_id, own, companions, count)
         return {
             'measurement': device['measurement'],
-            'fields': {channel['field-key']: value},
+            'fields': fields,
             'tags': tags,
             'time': int(time_ns),
         }
@@ -402,6 +402,13 @@ if __name__ == "__main__":
     # device of this logger. A device whose initialization, connection,
     # or reads fail is benched and retried every RECONNECT_INTERVAL_S;
     # a service restart is not the reconnect mechanism.
+    # Configuration errors fail the start: the supervision loop below
+    # retries DEVICE failures forever, and a bad channel key must not
+    # look like one (an unknown model stays a benched device, as before)
+    for device in devices:
+        cls = device_class(device)
+        if cls is not None:
+            check_status_config(device, cls)
     device_states = []
     for device in devices:
         try:
@@ -504,6 +511,17 @@ if __name__ == "__main__":
                 if device.get('ParallelReadout', True):
                     try:
                         readings = instance.get_values()
+                        for channel_id in channels_missing_status(
+                                device, readings, instance):
+                            if (device['Device'], channel_id) in status_warned:
+                                continue
+                            status_warned.add((device['Device'], channel_id))
+                            logger.warning(
+                                'Channel \'%s\' of device \'%s\': the module '
+                                'reports a status but returned a plain '
+                                'value — no status written (set '
+                                '\'status-field-key\' to null to accept)',
+                                channel_id, device['Device'])
                         # One timestamp per poll: all channels of a
                         # device read share it
                         time_ns = time.time_ns()

@@ -13,7 +13,7 @@ Maintained by Lothar Maisenbacher (UC Berkeley), partly based on earlier softwar
 - `Met One DR-528`: Met One DR-528 handheld particle counter (through RS-232 interface) (contributed by Jack Mango (UC Berkeley))
 - `SRS CTC100`: Stanford Research Instruments CTC100 cryogenic temperature controller (through USB interface)
 - `Cryomech CPA1110`: Cryomech CPA1110 helium compressor (through Modbus TCP protocol over ethernet interface)
-- `HighFinesse`: HighFinesse wavemeters (tested with models WS Ultimate 2 MC and WS/7) (through Windows DLL API communicating with wavemeter software)
+- `HighFinesse`: HighFinesse wavemeters (tested with models WS Ultimate 2 MC and WS/7) (through Windows DLL API communicating with wavemeter software). Channel type `Frequency` (THz, or GHz with `"Unit":"GHz"`); the wavemeter's result status rides along as the string field `status` on the same row (renamed with `"status-field-key"`, dropped with `"status-field-key": null`) — one row per wavemeter result: a valid result writes the frequency and `status="ok"`, an error writes only the status text (`overexposed`, `underexposed`, `no_signal`, `no_pulse`, ..., `unknown_error`; vocabulary in `amodevices.HighFinesseWS.STATUS_TEXT`), and "nothing new" (ReadOnce mode) writes nothing.
 - `rp-lockbox`: Custom Red Pitaya lockbox [rp-lockbox](https://github.com/lmaisenbacher/rp-lockbox)
 - `pydase`: [pydase](https://github.com/tiqi-group/pydase) apps/plug-ins
 - `SRS SIM922`: Stanford Research Instruments (SRS) SIM922 diode temperature monitor (through RS-232 port)
@@ -70,7 +70,7 @@ pip install git+https://github.com/lmaisenbacher/amodevices.git#egg=amodevices -
 
 ### Adapting configuration
 
-The logger uses two configuration files. "config.ini" contains the configuration of the database access, the update interval of the logger, and where the device configuration file is located. An example of a "config.ini" is included in the repository as "example_config.ini". The device configuration file is a JSON files that lists which devices and which channels on the given devices are read by the logger. An example device configuration file is included as "example_devices.json".
+The logger uses two configuration files. "config.ini" contains the configuration of the database access, the update interval of the logger, and where the device configuration file is located. An example of a "config.ini" is included in the repository as "example_config.ini". The device configuration file is a JSON files that lists which devices and which channels on the given devices are read by the logger. An example device configuration file is included as "example_devices.json". Each channel writes the field named by its `field-key`; `Multiplier` and `Converter` transform that value. Device modules that report a per-reading status (currently `HighFinesse`) also write it as a companion STRING field on the same row, `status` by default (`ok` for a valid value, else a plain-word reason); `status-field-key` on a channel renames that field, and `"status-field-key": null` switches it off for the channel. Before any device is opened the logger refuses the key on any other model, a malformed key, and a status field key equal to the channel's `field-key`, so it never silently writes nothing or the wrong type.
 
 By default, the logger will look for "config.ini" in the current working directory. To use a specific "config.ini", use the command line option `-c` to define the path to that file, e.g., `python logger.py -c /path/to/config.ini`.
 
