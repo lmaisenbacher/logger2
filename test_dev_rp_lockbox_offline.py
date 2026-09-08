@@ -70,7 +70,7 @@ ANSWERS = {
     'PID:IN2:OUT2:SETPoint?': '0.1', 'PID:IN2:OUT2:HOLD?': 'OFF',
     'PID:IN2:OUT2:REL?': 'ON', 'PID:IN2:OUT2:REL:MIN?': '0.5',
     'PID:IN2:OUT2:REL:MAX?': '1.2', 'PID:IN2:OUT2:REL:STEP?': '10',
-    'PID:IN2:OUT2:REL:INP?': 'AIN1', 'PID:IN2:OUT2:LOCK?': 'ON',
+    'PID:IN2:OUT2:REL:INP?': 'AIN1', 'PID:IN2:OUT2:LOCKED?': 'ON',
 }
 
 
@@ -118,7 +118,7 @@ def test_lock_events_on_transitions_only():
     # Unchanged: the value only
     assert fields(box, box.get_values())['Lock status PID22'] == {'locked': 1}
     # The lock drops, the relock input is below the window
-    answers['PID:IN2:OUT2:LOCK?'] = 'OFF'
+    answers['PID:IN2:OUT2:LOCKED?'] = 'OFF'
     answers['ANALOG:PIN? AIN1'] = '0.12'
     got = fields(box, box.get_values())['Lock status PID22']
     assert got == {
@@ -133,14 +133,14 @@ def test_lock_events_on_transitions_only():
     assert got['lock_event'] == (
         'unlocked: relock input 1.500 V above window 0.500-1.200 V (logger started)')
     # Relocked
-    answers['PID:IN2:OUT2:LOCK?'] = 'ON'
+    answers['PID:IN2:OUT2:LOCKED?'] = 'ON'
     got = fields(box, box.get_values())['Lock status PID22']
     assert got == {'locked': 1, 'lock_event': 'locked', 'lock_event_code': 1}
 
 
 def test_each_query_is_sent_once_per_poll():
     answers = dict(ANSWERS)
-    answers['PID:IN2:OUT2:LOCK?'] = 'OFF'      # the event reason reads the input + window
+    answers['PID:IN2:OUT2:LOCKED?'] = 'OFF'      # the event reason reads the input + window
     box = FakeLockbox(DEVICE, answers)
     box.get_values()
     assert len(box.sent) == len(set(box.sent)), box.sent
@@ -149,7 +149,7 @@ def test_each_query_is_sent_once_per_poll():
         assert box.sent.count(query) == 1
     # A new poll sends them again
     box.get_values()
-    assert box.sent.count('PID:IN2:OUT2:LOCK?') == 2
+    assert box.sent.count('PID:IN2:OUT2:LOCKED?') == 2
 
 
 def test_unknown_channel_type_is_refused_at_startup():

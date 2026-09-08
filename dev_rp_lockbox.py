@@ -33,7 +33,7 @@ server writes, so dashboards can share their annotation queries.
 Transitions are seen at the logger's poll interval only: a lock that
 drops and relocks within one interval leaves no trace here (the
 lockbox's lock status DO pins are the fast signal). The lock status
-needs the rp-lockbox SCPI server with the `PID:IN#:OUT#:LOCKed?` query
+needs the rp-lockbox SCPI server with the `PID:IN#:OUT#:LOCKED?` query
 (newer than release 1.2.0).
 
 Booleans are logged as 0/1 integers (InfluxDB would type a Python bool
