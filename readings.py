@@ -6,8 +6,9 @@ reading is either a scalar — the value of the channel's 'field-key' —
 or a dict ``{field key: value}``: the channel's own field (always
 present; None or NaN when the device gave no value) plus COMPANION
 fields written on the same database row, under field keys the module
-takes from the channel's configuration (`with_status` builds one). The
-one companion defined so far is the STATUS text: a plain-word string
+takes from the channel's configuration (`with_status` builds one) or
+fixes and documents itself (the lockbox module's lock-event fields). The
+companion with logger-wide configuration is the STATUS text: a plain-word string
 per reading ('ok' with a valid value, else the reason, e.g.
 'overexposed' — the convention lives in `amodevices.status`, each
 driver's code → word table beside its codes; a STRING fleet-wide,
