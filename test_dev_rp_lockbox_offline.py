@@ -43,12 +43,13 @@ CHANNELS = {
     'Analog out 2': channel('FastAnalogOut', 'voltage', DeviceChannel=2),
     'Output limit min 2': channel('OutputMin', 'voltage', DeviceChannel=2),
     'Output limit max 2': channel('OutputMax', 'voltage', DeviceChannel=2),
-    'Output enabled 2': channel('OutputState', 'enabled', DeviceChannel=2),
+    'Generator output 2': channel('GeneratorState', 'enabled', DeviceChannel=2),
     'Aux in 1': channel('AuxAnalogIn', 'voltage', DeviceChannel=1),
     'P gain PID22': channel('PGain', 'gain', PID='22'),
     'II gain PID22': channel('IIGain', 'gain', PID='22'),
     'Setpoint PID22': channel('Setpoint', 'voltage', PID='22'),
     'Hold PID22': channel('HoldState', 'enabled', PID='22'),
+    'PID output PID22': channel('PIDEnabled', 'enabled', PID='22'),
     'Relock enabled PID22': channel('RelockState', 'enabled', PID='22'),
     'Relock window min PID22': channel('RelockMin', 'voltage', PID='22'),
     'Relock window max PID22': channel('RelockMax', 'voltage', PID='22'),
@@ -68,6 +69,7 @@ ANSWERS = {
     'ANALOG:PIN? AIN1': '0.8125',
     'PID:IN2:OUT2:KP?': '0.5', 'PID:IN2:OUT2:KII?': '2000',
     'PID:IN2:OUT2:SETPoint?': '0.1', 'PID:IN2:OUT2:HOLD?': 'OFF',
+    'PID:IN2:OUT2:ENAB?': 'ON',
     'PID:IN2:OUT2:REL?': 'ON', 'PID:IN2:OUT2:REL:MIN?': '0.5',
     'PID:IN2:OUT2:REL:MAX?': '1.2', 'PID:IN2:OUT2:REL:STEP?': '10',
     'PID:IN2:OUT2:REL:INP?': 'AIN1', 'PID:IN2:OUT2:LOCKED?': 'ON',
@@ -101,7 +103,8 @@ def test_every_channel_type_reads_its_value():
 def test_booleans_are_logged_as_integers():
     box = FakeLockbox(DEVICE, dict(ANSWERS))
     got = fields(box, box.get_values())
-    for channel_id, expected in (('Output enabled 2', 1), ('Hold PID22', 0),
+    for channel_id, expected in (('Generator output 2', 1), ('Hold PID22', 0),
+                                 ('PID output PID22', 1),
                                  ('Relock enabled PID22', 1),
                                  ('Lock status PID22', 1)):
         value = got[channel_id][CHANNELS[channel_id]['field-key']]

@@ -13,12 +13,16 @@ Channel types ('Type') and the channel keys they need:
 
 - Per fast analog channel ('DeviceChannel': 1 or 2): `FastAnalogIn`,
   `FastAnalogOut` (V); `OutputMin`, `OutputMax` (the output limits, V);
-  `OutputState` (1 = output enabled, 0 = disabled).
+  `GeneratorState` (1 = the signal generator on that output is enabled,
+  `OUTPUT#:STATE?`; the generator adds to the PID output on the DAC, the
+  PID output itself has no enable).
 - Per auxiliary (slow, XADC) analog input ('DeviceChannel': 0-3):
   `AuxAnalogIn` (V).
 - Per PID controller ('PID': '11', '12', '21' or '22' = input/output):
   `GlobalGain`, `PGain`, `IGain`, `IIGain`, `DGain`; `Setpoint` (V);
-  `HoldState`, `RelockState` (1/0); `RelockMin`, `RelockMax` (V, the
+  `PIDEnabled` (1 = the PID + relock output is enabled - the web
+  interface's switch, the setting before the external lock reset gates
+  it); `HoldState`, `RelockState` (1/0); `RelockMin`, `RelockMax` (V, the
   window on the relock input inside which the PID counts as locked);
   `RelockStepsize` (V/s); `RelockInput` (the voltage on the auxiliary
   input the PID's relock feature monitors, V); `LockStatus` (below).
@@ -68,7 +72,7 @@ class Device(RPLockbox):
         'FastAnalogOut':  ('channel', 'get_fast_analog_output', float),
         'OutputMin':      ('channel', 'get_output_minimum', float),
         'OutputMax':      ('channel', 'get_output_maximum', float),
-        'OutputState':    ('channel', 'get_output_state', int),
+        'GeneratorState': ('channel', 'get_output_state', int),
         'AuxAnalogIn':    ('channel', 'get_aux_analog_input', float),
         'GlobalGain':     ('pid', 'get_kg', float),
         'PGain':          ('pid', 'get_kp', float),
@@ -77,6 +81,7 @@ class Device(RPLockbox):
         'DGain':          ('pid', 'get_kd', float),
         'Setpoint':       ('pid', 'get_setpoint', float),
         'HoldState':      ('pid', 'get_hold_state', int),
+        'PIDEnabled':     ('pid', 'get_pid_enabled', int),
         'RelockState':    ('pid', 'get_relock_state', int),
         'RelockMin':      ('pid', 'get_relock_minimum', float),
         'RelockMax':      ('pid', 'get_relock_maximum', float),
