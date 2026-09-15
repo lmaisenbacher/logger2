@@ -15,13 +15,14 @@ from types import SimpleNamespace
 from ruamel.yaml import YAML
 
 from defs import LoggerError
+from db_writer import BufferedWriter
 from readings import (channels_missing_status, check_status_config,
                       reading_fields)
 from amodevices.dev_exceptions import DeviceError
 
 import urllib3
 import influxdb_client
-from influxdb_client.client.write_api import SYNCHRONOUS, WriteOptions, WriteType
+from influxdb_client.client.write_api import SYNCHRONOUS
 from influxdb_client.client.exceptions import InfluxDBError
 
 # Device modules
@@ -54,15 +55,20 @@ DB_WRITE_ERRORS = (InfluxDBError, urllib3.exceptions.HTTPError)
 # `heartbeat_if_due()`
 CLOCK_HEARTBEAT_INTERVAL_S = 10.0
 
-# Client-side flush interval of the batching write api (ms). Small
+# Flush interval of the buffered writer in batching mode (ms). Small
 # enough to keep Grafana fresh and to bound the data lost on a hard
 # kill.
 DB_BATCH_FLUSH_INTERVAL_MS = 200
 
-# Maximum time `WriteApi.close()` may block draining the batch buffer at
-# shutdown (ms); the influxdb-client default is 5 minutes, which would
-# hang shutdown on an unreachable database.
+# Maximum time the buffered writer's close may block draining its
+# queue at shutdown (ms), so an unreachable database cannot hang the
+# shutdown.
 DB_BATCH_MAX_CLOSE_WAIT_MS = 5_000
+
+# Bound on one database request (ms) — a black-holed host costs the
+# polling thread at most this per heartbeat attempt and the buffered
+# writer at most this per flush attempt.
+DB_REQUEST_TIMEOUT_MS = 10_000
 
 # Pace of re-initialization/reconnection attempts for a failed device (s)
 RECONNECT_INTERVAL_S = 10.0
@@ -190,8 +196,9 @@ if __name__ == "__main__":
     TIMEOUT = int(CONF["Devices"]["timeout"])
     # 'synchronous' (default): one blocking HTTP request per cycle.
     # 'batching': buffer client-side and flush every
-    # DB_BATCH_FLUSH_INTERVAL_MS on influxdb-client's worker threads —
-    # a slow or unreachable database then never blocks device polling.
+    # DB_BATCH_FLUSH_INTERVAL_MS on the buffered writer's own thread
+    # (`db_writer.BufferedWriter`) — a slow or unreachable database
+    # then never blocks device polling.
     DB_WRITE_MODE = CONF["Database"].get("write_mode", "synchronous").lower()
     if DB_WRITE_MODE not in ("synchronous", "batching"):
         msg = f'Unknown [Database] write_mode \'{DB_WRITE_MODE}\''
@@ -207,49 +214,54 @@ if __name__ == "__main__":
     client = influxdb_client.InfluxDBClient(
         url=DB_URL,
         token=DB_TOKEN,
-        org=DB_ORG
+        org=DB_ORG,
+        timeout=DB_REQUEST_TIMEOUT_MS,
     )
-    # Heartbeat writes always use a synchronous api (see
-    # `heartbeat_if_due`); it doubles as the data path in synchronous
-    # mode.
-    write_api_sync = client.write_api(write_options=SYNCHRONOUS)
+    # The one write api, synchronous: the heartbeat's path (see
+    # `heartbeat_if_due`) and, in batching mode, the buffered writer's
+    # transport; in synchronous mode also the data path.
+    write_api = client.write_api(write_options=SYNCHRONOUS)
     if DB_WRITE_MODE == 'batching':
 
-        def _on_write_error(conf, data, exception):
-            logger.warning(
-                'Could not write batch to InfluxDB database: %s', exception)
+        def _on_write_error(exception):
+            if BufferedWriter.is_rejected(exception):
+                logger.warning(
+                    'InfluxDB database rejected a batch, dropped: %s',
+                    exception)
+            else:
+                logger.warning(
+                    'Could not write batch to InfluxDB database: %s '
+                    '(records kept, retrying)', exception)
 
-        def _on_write_retry(conf, data, exception):
-            logger.warning(
-                'Retrying InfluxDB batch write after error: %s', exception)
+        db_writer = BufferedWriter(
+            write_api, DB_BUCKET, DB_ORG,
+            flush_interval_ms=DB_BATCH_FLUSH_INTERVAL_MS,
+            close_wait_ms=DB_BATCH_MAX_CLOSE_WAIT_MS,
+            on_error=_on_write_error)
 
-        # No lock around `write()`: unlike the pydase servers, logger2
-        # is single-threaded, so only one thread ever pushes into the
-        # batching api's buffer.
-        write_api = client.write_api(
-            write_options=WriteOptions(
-                write_type=WriteType.batching,
-                flush_interval=DB_BATCH_FLUSH_INTERVAL_MS,
-                max_close_wait=DB_BATCH_MAX_CLOSE_WAIT_MS),
-            error_callback=_on_write_error,
-            retry_callback=_on_write_retry)
+        def write_points(points):
+            """Queue `points`; returns at once, never raises."""
+            db_writer.write(points)
     else:
-        write_api = write_api_sync
+        db_writer = None
+
+        def write_points(points):
+            """One blocking request (raises on failure)."""
+            write_api.write(DB_BUCKET, DB_ORG, points)
 
     _db_closed = SimpleNamespace(done=False)
 
     def _close_db():
-        """Drain and close the database connection (idempotent).
-        `WriteApi.flush()` is a no-op stub in influxdb-client 1.50.0,
-        so closing is the only way to drain the batch buffer — bounded
-        by DB_BATCH_MAX_CLOSE_WAIT_MS."""
+        """Drain the buffered writer (bounded by
+        DB_BATCH_MAX_CLOSE_WAIT_MS) and close the database connection
+        (idempotent)."""
         if _db_closed.done:
             return
         _db_closed.done = True
         try:
+            if db_writer is not None:
+                db_writer.close()
             write_api.close()
-            if write_api_sync is not write_api:
-                write_api_sync.close()
             client.close()
         except Exception as e:
             logger.warning('Error closing database connection: %s', e)
@@ -320,7 +332,7 @@ if __name__ == "__main__":
             },
         }]
         try:
-            write_api_sync.write(DB_BUCKET, DB_ORG, json_body)
+            write_api.write(DB_BUCKET, DB_ORG, json_body)
         except DB_WRITE_ERRORS as e:
             logger.warning(
                 'Could not write clock-sync heartbeat to InfluxDB '
@@ -568,13 +580,13 @@ if __name__ == "__main__":
                 device_times[device['Device']] = time.monotonic() - t_device
 
             if points:
-                # Batching mode: this only pushes into the client-side
-                # buffer (microseconds) — the HTTP requests happen on
-                # influxdb-client's worker threads, so a slow database
-                # never stalls the polling. Synchronous mode: ONE
-                # request per cycle instead of one per channel.
+                # Batching mode: this only queues the points
+                # (microseconds) — the HTTP requests happen on the
+                # buffered writer's thread, so a slow database never
+                # stalls the polling. Synchronous mode: ONE request
+                # per cycle instead of one per channel.
                 try:
-                    write_api.write(DB_BUCKET, DB_ORG, points)
+                    write_points(points)
                 except DB_WRITE_ERRORS as e:
                     logger.warning(f'Could not write to database: {e}')
 

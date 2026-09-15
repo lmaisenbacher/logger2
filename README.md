@@ -81,7 +81,7 @@ Points are written to InfluxDB once per update cycle. Every point carries an exp
 The `[Database]` option `write_mode` in "config.ini" selects how writes happen:
 
 - `synchronous` (default): one blocking HTTP request per update cycle.
-- `batching`: points are buffered client-side and flushed every 200 ms by influxdb-client's worker threads, with automatic retries on failure. A slow or unreachable database then never blocks device polling. The buffer is drained at shutdown (bounded at 5 s).
+- `batching`: points are queued client-side and posted every 200 ms by logger2's own writer thread (`db_writer.py`), at most 5000 points per request; a request the database rejects (a 4xx status: malformed line, field type conflict, bad token) is dropped and logged, any other failure keeps its points at the head of the queue for a retry after 5 s, and the queue is capped at 20000 points (the oldest are dropped beyond it). A slow or unreachable database then never blocks device polling. The queue is drained at shutdown (bounded at 5 s). influxdb-client's own batching mode is deliberately not used: its RxPY window operator (reactivex 5.1.0) discards points pushed while a flush window is being closed, without reporting them (RxPY issue 694, fixed upstream but unreleased as of 2026-09).
 
 Non-finite values (NaN/Inf) are never written - InfluxDB has no representation for them; a gap in the series marks them, and the log records each skipped reading.
 
