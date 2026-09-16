@@ -225,74 +225,121 @@ def test_rollover_failure_is_contained_and_not_retried(tmp_path, monkeypatch):
 
 # -- the process name ------------------------------------------------
 
-
-CONFIG_ROOT = Path('/home/unitrap/Coding/unitrap-logger2-configs')
-
-#: Every logger directory in unitrap-logger2-configs, as deployed
-LOGGER_DIRS = [
-    'cavity-multimeter', 'cavity-power-meters', 'cavity-pressure-gauges',
-    'cavity-temperature-monitor', 'cryocooler', 'dr-528', 'purpleair',
-    'rp-cryocooler', 'rp-lockbox', 'wavemeter',
-    ]
+CONFIG = Path('/home/unitrap/Coding/unitrap-logger2-configs/wavemeter/config.ini')
 
 
-def test_name_comes_from_the_config_directory(monkeypatch):
-    """The directory is the deployment unit, not the file name."""
-    monkeypatch.delenv(health.LOG_NAME_ENV, raising=False)
-    assert health.derive_process_name(
-        CONFIG_ROOT / 'wavemeter' / 'config.ini',
-        make_config()) == 'wavemeter'
-    assert health.derive_process_name(
-        CONFIG_ROOT / 'cavity-temperature-monitor' / 'config.ini',
-        make_config()) == 'cavity-temperature-monitor'
+def test_name_comes_from_the_logger_section():
+    assert health.process_name_from_config(
+        make_config('logger-wmeter-1064'), CONFIG) == 'logger-wmeter-1064'
 
 
-def test_every_deployed_logger_gets_its_own_name(monkeypatch):
-    """The regression this replaces: every logger's config is called
-    config.ini, so naming from the stem gave all ten the same name -
-    one log file written by ten processes, each rotating it under the
-    others, and one health series with ten uptimes interleaved."""
-    monkeypatch.delenv(health.LOG_NAME_ENV, raising=False)
-    names = [health.derive_process_name(CONFIG_ROOT / d / 'config.ini',
-                                        make_config())
-             for d in LOGGER_DIRS]
-    assert sorted(names) == sorted(LOGGER_DIRS)
-    assert len(set(names)) == len(LOGGER_DIRS)
+@pytest.mark.parametrize('config', [
+    make_config(),
+    make_config(''),
+    make_config('   '),
+    None,
+])
+def test_missing_name_refuses_to_start(config):
+    """The name is mandatory: a fallback would be a silent wrong answer,
+    and an optional key is exactly what gets skipped when in doubt -
+    which is how ten loggers once shared the name 'logger2'."""
+    with pytest.raises(health.ProcessNameError) as excinfo:
+        health.process_name_from_config(config, CONFIG)
+    message = str(excinfo.value)
+    assert str(CONFIG) in message
+    assert "'name'" in message and '[Logger]' in message
 
 
-def test_a_second_config_in_one_directory_adds_the_stem(monkeypatch):
-    """The wavemeter runs a second instance from config_dye.ini."""
-    monkeypatch.delenv(health.LOG_NAME_ENV, raising=False)
-    assert health.derive_process_name(
-        CONFIG_ROOT / 'wavemeter' / 'config_dye.ini',
-        make_config()) == 'wavemeter-config_dye'
+@pytest.mark.parametrize('bad', [
+    'logger wmeter', 'wmeter/1', 'wmeter:1', '-wmeter', '.hidden', 'a\tb',
+])
+def test_malformed_name_refuses_to_start(bad):
+    """A name becomes a file name and a database tag."""
+    with pytest.raises(health.ProcessNameError):
+        health.process_name_from_config(make_config(bad), CONFIG)
 
 
-def test_name_falls_back_without_a_usable_directory(monkeypatch):
-    monkeypatch.delenv(health.LOG_NAME_ENV, raising=False)
-    assert health.derive_process_name(
-        Path('config.ini'), make_config()) == 'logger2'
+@pytest.mark.parametrize('good', [
+    'logger-cavity-temperature-monitor', 'logger-wmeter-dye',
+    'logger-rp-cryocooler', 'logger-dr-528', 'a', 'x.y_z',
+])
+def test_service_style_names_are_accepted(good):
+    assert health.process_name_from_config(make_config(good), CONFIG) == good
 
 
-def test_name_key_wins_over_the_directory(monkeypatch):
-    monkeypatch.delenv(health.LOG_NAME_ENV, raising=False)
-    assert health.derive_process_name(
-        CONFIG_ROOT / 'wavemeter' / 'config.ini',
-        make_config('dye-wavemeter')) == 'dye-wavemeter'
+def test_name_is_stripped():
+    assert health.process_name_from_config(
+        make_config(' logger-purpleair '), CONFIG) == 'logger-purpleair'
 
 
-def test_name_env_wins_over_everything(monkeypatch):
-    monkeypatch.setenv(health.LOG_NAME_ENV, 'chosen')
-    assert health.derive_process_name(
-        CONFIG_ROOT / 'wavemeter' / 'config.ini',
-        make_config('dye-wavemeter')) == 'chosen'
+# -- the name lock ---------------------------------------------------
+
+HOLD_LOCK = '''
+import sys, time
+sys.path.insert(0, sys.argv[1])
+import health
+health.claim_process_name(sys.argv[2], log_dir=sys.argv[3])
+print("held", flush=True)
+time.sleep(float(sys.argv[4]))
+'''
 
 
-def test_name_is_sanitized_for_a_filename(monkeypatch):
-    monkeypatch.delenv(health.LOG_NAME_ENV, raising=False)
-    assert health.derive_process_name(
-        CONFIG_ROOT / 'wavemeter' / 'config.ini',
-        make_config('weird name!')) == 'weird_name'
+def hold_lock_in_subprocess(name, log_dir, seconds=30.):
+    """Start a second process that claims `name` and holds it; returns
+    once the claim is confirmed."""
+    import subprocess
+    import sys
+    repo = str(Path(__file__).resolve().parent)
+    proc = subprocess.Popen(
+        [sys.executable, '-c', HOLD_LOCK, repo, name, str(log_dir),
+         str(seconds)],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    line = proc.stdout.readline()
+    assert line.strip() == 'held', proc.stderr.read()
+    return proc
+
+
+def test_claim_is_idempotent_within_a_process(tmp_path, monkeypatch):
+    monkeypatch.setenv(health.LOG_DIR_ENV, str(tmp_path))
+    health.claim_process_name('logger-demo')
+    health.claim_process_name('logger-demo')
+    assert (tmp_path / 'logger-demo.lock').exists()
+
+
+def test_second_process_with_the_same_name_is_refused(tmp_path, monkeypatch):
+    """The copy-paste hazard: a cloned config with the name unchanged."""
+    monkeypatch.setenv(health.LOG_DIR_ENV, str(tmp_path))
+    monkeypatch.setattr(health, 'PROCESS_NAME_CLAIM_TIMEOUT_S', 0.3)
+    holder = hold_lock_in_subprocess('logger-demo', tmp_path)
+    try:
+        with pytest.raises(health.ProcessNameTakenError) as excinfo:
+            health.claim_process_name('logger-demo')
+        assert 'logger-demo' in str(excinfo.value)
+    finally:
+        holder.kill()
+        holder.wait()
+
+
+def test_a_different_name_is_not_blocked(tmp_path, monkeypatch):
+    monkeypatch.setenv(health.LOG_DIR_ENV, str(tmp_path))
+    holder = hold_lock_in_subprocess('logger-demo', tmp_path)
+    try:
+        health.claim_process_name('logger-other')
+    finally:
+        holder.kill()
+        holder.wait()
+
+
+def test_a_restart_right_after_a_crash_gets_the_name(tmp_path, monkeypatch):
+    """The operating system frees a dead holder's lock a few
+    milliseconds after the process is gone, and the service wrappers
+    restart a crashed process at once; the claim must wait that out
+    rather than refuse the restart."""
+    monkeypatch.setenv(health.LOG_DIR_ENV, str(tmp_path))
+    holder = hold_lock_in_subprocess('logger-demo', tmp_path)
+    holder.kill()
+    holder.wait()
+    health.claim_process_name('logger-demo')
 
 
 # -- the health point ------------------------------------------------

@@ -37,11 +37,20 @@ from db_writer import BufferedWriter
 
 logger = logging.getLogger(__name__)
 
-# Environment overrides for the log directory and the process name
+# Environment override for the log directory
 LOG_DIR_ENV = 'UNITRAP_LOG_DIR'
-LOG_NAME_ENV = 'UNITRAP_LOG_NAME'
 # Default directory, under the user's home on both Windows and Linux
 LOG_DIR_DEFAULT_PARTS = ('logs', 'unitrap')
+# The process name is the config's mandatory key in this section
+PROCESS_NAME_SECTION = 'Logger'
+PROCESS_NAME_KEY = 'name'
+# A name becomes a file name and a database tag, so it is restricted to
+# characters that are safe in both, with no whitespace
+PROCESS_NAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]*$')
+# How long a start keeps trying to claim its name before concluding that
+# another live process holds it (s), and the pause between attempts
+PROCESS_NAME_CLAIM_TIMEOUT_S = 5.0
+PROCESS_NAME_CLAIM_RETRY_S = 0.1
 # Rotation: at most (backups + 1) files of this size per process
 LOG_MAX_BYTES = 10 * 1024 * 1024
 LOG_BACKUP_COUNT = 5
@@ -58,11 +67,6 @@ _ANSI_RE = re.compile(r'\x1b\[[0-9;?]*[ -/]*[@-~]')
 # from it never reach a handler on the root logger. `dev_pydase` uses
 # pydase clients, whose connection problems are logged there.
 _NON_PROPAGATING_LOGGERS = ('pydase',)
-# Default process name; the config stem is appended when it is not the
-# default, so several logger instances on one host stay apart
-PROCESS_NAME_DEFAULT = 'logger2'
-CONFIG_STEM_DEFAULT = 'config'
-
 # Measurement carrying one point per PROCESS, shared with the pydase
 # apps. Deliberately not the logger's own measurement: a logger serves
 # many devices, in many measurements, and this describes none of them.
@@ -387,41 +391,122 @@ def resolve_log_dir(log_dir=None):
     return None
 
 
-def derive_process_name(config_path=None, config=None):
-    """This process's name, used for the log file AND the health point.
+class ProcessNameError(Exception):
+    """The configuration names this process badly or not at all."""
 
-    In precedence order: `UNITRAP_LOG_NAME`, the optional `[Logger]
-    name` key of the configuration, then the config file's DIRECTORY
-    plus its stem when that stem is not the default.
 
-    The directory carries the identity because it is the deployment
-    unit: every logger in unitrap-logger2-configs lives in its own
-    directory ('wavemeter', 'cavity-temperature-monitor', ...) holding
-    a file called config.ini, so the stem names none of them and the
-    directory names each exactly once. One host runs ten of these, and
-    they must not share a log file or a database series.
+class ProcessNameTakenError(ProcessNameError):
+    """Another live process on this host already runs under this name."""
 
-    config_path : pathlib.Path
-        Path of the configuration file.
+
+def process_name_from_config(config, config_path):
+    """This process's mandatory name, used for the log file AND the
+    `process` tag of its health points.
+
+    Read from the config's `[Logger]` section, key `name`, and
+    required: a config without one raises `ProcessNameError` and the
+    logger does not start. The name is defined in the config and
+    nowhere else, deliberately. Deriving it from the config's location
+    tied the identity to a directory layout, and reading it from the
+    service definition relied on every service being set up correctly
+    - both are exactly what people get wrong when in doubt. The name
+    must match the service name, so the log file, the database series,
+    the service and the Notion list of loggers and servers all agree.
+
     config : configparser.ConfigParser
-        The parsed configuration, read for its optional name key.
+        The parsed configuration.
+    config_path : pathlib.Path
+        Its path, for the error messages.
     """
-    name = os.environ.get(LOG_NAME_ENV) or ''
-    if not name and config is not None:
+    try:
+        name = config.get(PROCESS_NAME_SECTION, PROCESS_NAME_KEY,
+                          fallback=None)
+    except (configparser.Error, AttributeError):
+        name = None
+    where = (f'\'{PROCESS_NAME_KEY}\' in the [{PROCESS_NAME_SECTION}]'
+             f' section')
+    if name is None or not name.strip():
+        raise ProcessNameError(
+            f'Configuration file \'{config_path}\' has no {where}. Every'
+            f' logger needs one: it names the log file and the'
+            f' \'process\' tag of its health points, and it must equal the'
+            f' service name, e.g. {PROCESS_NAME_KEY} ='
+            f' logger-cavity-temperature-monitor.')
+    if not PROCESS_NAME_RE.match(name.strip()):
+        raise ProcessNameError(
+            f'Configuration file \'{config_path}\': {where} is {name!r},'
+            f' but a process name may only contain letters, digits, \'.\','
+            f' \'_\' and \'-\', and must start with a letter or digit.')
+    return name.strip()
+
+
+_PROCESS_LOCK = None
+
+
+def claim_process_name(name, log_dir=None):
+    """Take the host-wide lock on `name`, held until this process ends.
+
+    Two processes with one name would share a log file, each rotating
+    it out from under the other, and write one health series with two
+    uptimes interleaved - and a copied config with the name left
+    unchanged is the easiest mistake to make. The lock is an OS file
+    lock on `<log dir>/<name>.lock`, released by the operating system
+    when the holder dies, so a crash never leaves a stale one. Raises
+    `ProcessNameTakenError` when another live process holds it.
+    Idempotent within one process.
+    """
+    global _PROCESS_LOCK
+    with _LOGGING_LOCK:
+        if _PROCESS_LOCK is not None:
+            return
+    directory = resolve_log_dir(log_dir)
+    if directory is None:
+        logger.warning(
+            'No writable log directory (set %s): cannot guard against'
+            ' a second process named \'%s\'', LOG_DIR_ENV, name)
+        return
+    path = directory / f'{name}.lock'
+    # Retried for a moment: the operating system releases a dead
+    # holder's lock a few milliseconds AFTER the process is gone (about
+    # 10 ms measured on Windows), and the service wrappers restart a
+    # crashed process at once, so a single attempt would refuse the
+    # very restart that recovers from a crash
+    deadline = time.monotonic() + PROCESS_NAME_CLAIM_TIMEOUT_S
+    while True:
+        handle = open(path, 'a+')
         try:
-            name = config.get('Logger', 'name', fallback='') or ''
-        except configparser.Error:
-            name = ''
-    if not name and config_path is not None:
-        config_path = Path(config_path)
-        name = config_path.parent.name
-        if name in ('', '.', '..'):
-            name = PROCESS_NAME_DEFAULT
-        if config_path.stem != CONFIG_STEM_DEFAULT:
-            name = f'{name}-{config_path.stem}'
-    if not name or name in ('.', '..'):
-        name = Path(sys.argv[0]).stem or PROCESS_NAME_DEFAULT
-    return re.sub(r'[^A-Za-z0-9._-]+', '_', name).strip('_') or 'python'
+            handle.seek(0)
+            if os.name == 'nt':
+                import msvcrt
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break
+        except OSError:
+            handle.close()
+            if time.monotonic() >= deadline:
+                raise ProcessNameTakenError(
+                    f'Another process named \'{name}\' is already running'
+                    f' on this host (it holds \'{path}\'). Two processes'
+                    f' cannot share a name: give this one its own in the'
+                    f' config, or stop the other first.') from None
+            time.sleep(PROCESS_NAME_CLAIM_RETRY_S)
+    with _LOGGING_LOCK:
+        if _PROCESS_LOCK is None:
+            _PROCESS_LOCK = handle
+        else:
+            handle.close()
+
+
+def release_process_name():
+    """Release the name lock again. FOR TESTS ONLY - a logger holds
+    its name for its lifetime."""
+    global _PROCESS_LOCK
+    with _LOGGING_LOCK:
+        handle, _PROCESS_LOCK = _PROCESS_LOCK, None
+    if handle is not None:
+        handle.close()
 
 
 def _attach_to_log_tree(handler):
@@ -443,16 +528,16 @@ def _attach_to_log_tree(handler):
         target.addHandler(handler)
 
 
-def setup_process_logging(process_name=None, config_path=None, config=None,
-                          log_dir=None, max_bytes=LOG_MAX_BYTES,
+def setup_process_logging(name, log_dir=None, max_bytes=LOG_MAX_BYTES,
                           backup_count=LOG_BACKUP_COUNT):
     """Give this process a durable log file and the health counters.
 
-    Adds a rotating file handler and a warning/error counter to the
-    root logger and to the loggers that do not propagate to it.
-    Returns the log file path, or None when no directory was usable.
-    Idempotent, and never raises: a logger must run whether or not it
-    can write a log.
+    `name` is the process name from `process_name_from_config`; it
+    names the file and the health points. Adds a rotating file handler
+    and a warning/error counter to the root logger and to the loggers
+    that do not propagate to it. Returns the log file path, or None
+    when no directory was usable. Idempotent, and never raises: a
+    logger must run whether or not it can write a log.
 
     Call it AFTER `logging.basicConfig(...)`, which the logger reaches
     before reading its configuration. Nothing here changes a logger's
@@ -466,7 +551,6 @@ def setup_process_logging(process_name=None, config_path=None, config=None,
         if _LOG_COUNTER not in logging.getLogger().handlers:
             _attach_to_log_tree(_LOG_COUNTER)
         PROCESS_HEALTH.attach_counter(_LOG_COUNTER)
-        name = process_name or derive_process_name(config_path, config)
         PROCESS_HEALTH.set_process_name(name)
         if _FILE_HANDLER is not None:
             return Path(_FILE_HANDLER.baseFilename)
@@ -529,3 +613,4 @@ def teardown_process_logging():
                 handler.close()
             except Exception:
                 pass
+    release_process_name()

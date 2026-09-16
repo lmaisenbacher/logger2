@@ -189,12 +189,20 @@ if __name__ == "__main__":
         logger.error(msg)
         raise LoggerError(msg)
 
-    # Durable log file, installed after `_setup_logging` so the console
+    # This process's mandatory name ([Logger] name), claimed host-wide so
+    # a second instance under the same name cannot start, then the
+    # durable log file - installed after `_setup_logging` so the console
     # configuration above stands: the service wrapper's stdout redirect
     # is truncated on every restart, while this one rotates and
-    # survives. Also the point where the process gets the name it
-    # carries into its health telemetry.
-    health.setup_process_logging(config_path=config_path, config=CONF)
+    # survives. A missing or taken name fails the start like any other
+    # configuration error.
+    try:
+        PROCESS_NAME = health.process_name_from_config(CONF, config_path)
+        health.claim_process_name(PROCESS_NAME)
+    except health.ProcessNameError as err:
+        logger.error(str(err))
+        raise LoggerError(str(err)) from err
+    health.setup_process_logging(PROCESS_NAME)
 
     DB_URL = CONF["Database"]["url"]
     DB_BUCKET = CONF["Database"]["bucket"]

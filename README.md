@@ -99,7 +99,18 @@ The logger writes a rotating log file, in addition to whatever its console outpu
 
 on Windows and Linux alike, up to six files of 10 MB. The service wrappers (FireDaemon, systemd) truncate their stdout redirect on every restart, so the log of a session that misbehaved is destroyed by the restart used to cure it; these files survive it.
 
-`<name>` is the DIRECTORY holding "config.ini" - `wavemeter`, `cavity-temperature-monitor` - plus this config file's stem when that is not `config`, so the wavemeter's second instance under "config_dye.ini" becomes `wavemeter-config_dye`. The directory carries the identity because it is the deployment unit: every logger in unitrap-logger2-configs has its own directory and a file called "config.ini" in it, so the file name names none of them. One host runs ten of these and they must not share a log file. The optional `[Logger]` key `name` overrides it, and the same string becomes the `process` tag of the health points below. `UNITRAP_LOG_DIR` and `UNITRAP_LOG_NAME` override the directory and the name.
+`<name>` is the `[Logger]` key `name` in "config.ini", and it is MANDATORY: a config without one refuses to start, with a message naming the file and the key. The same string is the `process` tag of the health points below. It must equal the service name (the systemd unit or FireDaemon service name, which is also the Name column of the Notion list of loggers and servers), so that the log file, the database series, the service and the list all agree:
+
+```
+[Logger]
+name = logger-cavity-temperature-monitor
+```
+
+The name lives in the config and nowhere else, deliberately. Deriving it from the config's location tied the identity to a directory layout (and every logger's config is called "config.ini", so naming from the file gave ten loggers one name), and reading it from the service definition would rely on every service being set up correctly, which is exactly what goes wrong when in doubt. Letters, digits, `.`, `_` and `-` only.
+
+At startup the logger also takes a host-wide lock on its name (`~/logs/unitrap/<name>.lock`, an OS file lock that dies with the process, so a crash cannot leave it behind). A second live process with the same name on the same host refuses to start and says which name is taken, which catches the easiest mistake there is: a copied config with the name left unchanged. Two processes sharing a name would write one log file, each rotating it out from under the other, and one health series with two uptimes interleaved. The claim is retried for a few seconds, because the operating system frees a dead holder's lock a few milliseconds after the process is gone and the service wrappers restart a crashed process at once.
+
+`UNITRAP_LOG_DIR` overrides the log directory, for a host that keeps its logs elsewhere.
 
 The file also carries the records of pydase's own logger, which never reach the root logger, so the `pydase` device module's connection problems are on it.
 
