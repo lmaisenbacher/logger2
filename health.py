@@ -391,9 +391,15 @@ def derive_process_name(config_path=None, config=None):
     """This process's name, used for the log file AND the health point.
 
     In precedence order: `UNITRAP_LOG_NAME`, the optional `[Logger]
-    name` key of the configuration, then 'logger2' plus the config stem
-    when that stem is not the default — one host runs several logger
-    instances, and they must not share a file or a database series.
+    name` key of the configuration, then the config file's DIRECTORY
+    plus its stem when that stem is not the default.
+
+    The directory carries the identity because it is the deployment
+    unit: every logger in unitrap-logger2-configs lives in its own
+    directory ('wavemeter', 'cavity-temperature-monitor', ...) holding
+    a file called config.ini, so the stem names none of them and the
+    directory names each exactly once. One host runs ten of these, and
+    they must not share a log file or a database series.
 
     config_path : pathlib.Path
         Path of the configuration file.
@@ -408,7 +414,9 @@ def derive_process_name(config_path=None, config=None):
             name = ''
     if not name and config_path is not None:
         config_path = Path(config_path)
-        name = PROCESS_NAME_DEFAULT
+        name = config_path.parent.name
+        if name in ('', '.', '..'):
+            name = PROCESS_NAME_DEFAULT
         if config_path.stem != CONFIG_STEM_DEFAULT:
             name = f'{name}-{config_path.stem}'
     if not name or name in ('.', '..'):

@@ -226,30 +226,73 @@ def test_rollover_failure_is_contained_and_not_retried(tmp_path, monkeypatch):
 # -- the process name ------------------------------------------------
 
 
-def test_name_from_the_config_stem(monkeypatch):
-    monkeypatch.delenv(health.LOG_NAME_ENV, raising=False)
-    assert health.derive_process_name(
-        Path('x/config.ini'), make_config()) == 'logger2'
-    assert health.derive_process_name(
-        Path('x/config_vacuum.ini'), make_config()) == 'logger2-config_vacuum'
+CONFIG_ROOT = Path('/home/unitrap/Coding/unitrap-logger2-configs')
+
+#: Every logger directory in unitrap-logger2-configs, as deployed
+LOGGER_DIRS = [
+    'cavity-multimeter', 'cavity-power-meters', 'cavity-pressure-gauges',
+    'cavity-temperature-monitor', 'cryocooler', 'dr-528', 'purpleair',
+    'rp-cryocooler', 'rp-lockbox', 'wavemeter',
+    ]
 
 
-def test_name_key_wins_over_the_stem(monkeypatch):
+def test_name_comes_from_the_config_directory(monkeypatch):
+    """The directory is the deployment unit, not the file name."""
     monkeypatch.delenv(health.LOG_NAME_ENV, raising=False)
     assert health.derive_process_name(
-        Path('x/config_vacuum.ini'), make_config('vacuum')) == 'vacuum'
+        CONFIG_ROOT / 'wavemeter' / 'config.ini',
+        make_config()) == 'wavemeter'
+    assert health.derive_process_name(
+        CONFIG_ROOT / 'cavity-temperature-monitor' / 'config.ini',
+        make_config()) == 'cavity-temperature-monitor'
+
+
+def test_every_deployed_logger_gets_its_own_name(monkeypatch):
+    """The regression this replaces: every logger's config is called
+    config.ini, so naming from the stem gave all ten the same name -
+    one log file written by ten processes, each rotating it under the
+    others, and one health series with ten uptimes interleaved."""
+    monkeypatch.delenv(health.LOG_NAME_ENV, raising=False)
+    names = [health.derive_process_name(CONFIG_ROOT / d / 'config.ini',
+                                        make_config())
+             for d in LOGGER_DIRS]
+    assert sorted(names) == sorted(LOGGER_DIRS)
+    assert len(set(names)) == len(LOGGER_DIRS)
+
+
+def test_a_second_config_in_one_directory_adds_the_stem(monkeypatch):
+    """The wavemeter runs a second instance from config_dye.ini."""
+    monkeypatch.delenv(health.LOG_NAME_ENV, raising=False)
+    assert health.derive_process_name(
+        CONFIG_ROOT / 'wavemeter' / 'config_dye.ini',
+        make_config()) == 'wavemeter-config_dye'
+
+
+def test_name_falls_back_without_a_usable_directory(monkeypatch):
+    monkeypatch.delenv(health.LOG_NAME_ENV, raising=False)
+    assert health.derive_process_name(
+        Path('config.ini'), make_config()) == 'logger2'
+
+
+def test_name_key_wins_over_the_directory(monkeypatch):
+    monkeypatch.delenv(health.LOG_NAME_ENV, raising=False)
+    assert health.derive_process_name(
+        CONFIG_ROOT / 'wavemeter' / 'config.ini',
+        make_config('dye-wavemeter')) == 'dye-wavemeter'
 
 
 def test_name_env_wins_over_everything(monkeypatch):
     monkeypatch.setenv(health.LOG_NAME_ENV, 'chosen')
     assert health.derive_process_name(
-        Path('x/config_vacuum.ini'), make_config('vacuum')) == 'chosen'
+        CONFIG_ROOT / 'wavemeter' / 'config.ini',
+        make_config('dye-wavemeter')) == 'chosen'
 
 
 def test_name_is_sanitized_for_a_filename(monkeypatch):
     monkeypatch.delenv(health.LOG_NAME_ENV, raising=False)
     assert health.derive_process_name(
-        Path('x/config.ini'), make_config('weird name!')) == 'weird_name'
+        CONFIG_ROOT / 'wavemeter' / 'config.ini',
+        make_config('weird name!')) == 'weird_name'
 
 
 # -- the health point ------------------------------------------------

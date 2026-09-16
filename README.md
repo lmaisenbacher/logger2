@@ -99,7 +99,7 @@ The logger writes a rotating log file, in addition to whatever its console outpu
 
 on Windows and Linux alike, up to six files of 10 MB. The service wrappers (FireDaemon, systemd) truncate their stdout redirect on every restart, so the log of a session that misbehaved is destroyed by the restart used to cure it; these files survive it.
 
-`<name>` is the optional `[Logger]` key `name` in "config.ini". Without it the name is `logger2`, plus this config file's stem when that is not `config` - one host runs several logger instances, and they must not share a file. The same string becomes the `process` tag of the health points below. `UNITRAP_LOG_DIR` and `UNITRAP_LOG_NAME` override the directory and the name.
+`<name>` is the DIRECTORY holding "config.ini" - `wavemeter`, `cavity-temperature-monitor` - plus this config file's stem when that is not `config`, so the wavemeter's second instance under "config_dye.ini" becomes `wavemeter-config_dye`. The directory carries the identity because it is the deployment unit: every logger in unitrap-logger2-configs has its own directory and a file called "config.ini" in it, so the file name names none of them. One host runs ten of these and they must not share a log file. The optional `[Logger]` key `name` overrides it, and the same string becomes the `process` tag of the health points below. `UNITRAP_LOG_DIR` and `UNITRAP_LOG_NAME` override the directory and the name.
 
 The file also carries the records of pydase's own logger, which never reach the root logger, so the `pydase` device module's connection problems are on it.
 
