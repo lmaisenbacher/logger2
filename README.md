@@ -89,6 +89,40 @@ Non-finite values (NaN/Inf) are never written - InfluxDB has no representation f
 
 Every 10 s, one heartbeat point per device is written to that device's measurement, tagged `sensor="Clock sync"`. It carries this host's clock in the field `client_time_ns` and - deliberately - no explicit timestamp, so the database stamps `_time` at ingestion with its own clock: `_time - client_time_ns` is then the host-vs-database clock offset (plus one-way network latency). The [unitrap-pydase-apps](https://github.com/matterwaves/unitrap-pydase-apps) servers use the same convention, so all hosts appear on one clock-offset panel. Heartbeats are written synchronously even in batching mode (a written heartbeat means the database was reachable at that moment) and are sent even while a device read fails - they indicate the logger and database are alive, independent of data.
 
+## Logs
+
+The logger writes a rotating log file, in addition to whatever its console output is redirected to:
+
+```
+~/logs/unitrap/<name>.log
+```
+
+on Windows and Linux alike, up to six files of 10 MB. The service wrappers (FireDaemon, systemd) truncate their stdout redirect on every restart, so the log of a session that misbehaved is destroyed by the restart used to cure it; these files survive it.
+
+`<name>` is the optional `[Logger]` key `name` in "config.ini". Without it the name is `logger2`, plus this config file's stem when that is not `config` - one host runs several logger instances, and they must not share a file. The same string becomes the `process` tag of the health points below. `UNITRAP_LOG_DIR` and `UNITRAP_LOG_NAME` override the directory and the name.
+
+The file also carries the records of pydase's own logger, which never reach the root logger, so the `pydase` device module's connection problems are on it.
+
+## Health telemetry
+
+Once per 10 s the logger writes one point describing ITSELF, from a dedicated thread that touches neither the polling loop nor the data path. The [unitrap-pydase-apps](https://github.com/matterwaves/unitrap-pydase-apps) servers write the same point, so one dashboard covers the fleet (`grafana/fleet_health_dashboard.json` there).
+
+Measurement `serverhealth`, deliberately not the logger's own measurements - a logger serves many devices, in many measurements, and this describes none of them. Tags: `process`, `host`, plus `device` (the process name again) and `sensor="Health"`.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `uptime_s` | float | Seconds since the logger started |
+| `loop_lag_ms` | float | Largest cycle overrun since the last point |
+| `cycle_overruns_total` | int | Cycles that overran their slot, cumulative |
+| `n_warnings` | int | WARNING records logged, cumulative |
+| `n_errors` | int | ERROR records logged, cumulative |
+| `n_written` | int | Records the buffered writer delivered, cumulative |
+| `n_dropped` | int | Records the buffered writer discarded, cumulative |
+
+InfluxDB pins a field's type per measurement, and the servers write this same measurement, so every field is coerced at one place in `health.ProcessHealth._build_point` and the tests assert the exact Python type of each. The write counters are absent in synchronous mode. A point the database REJECTS three times in a row disables the telemetry for this process, with one ERROR line saying so; nothing else the logger writes is affected.
+
+The health point deliberately does not ride the clock-sync heartbeat, which is written per DEVICE: an appended health point would emit once per device, fifteen identical points every 10 s on a populated logger. The heartbeat is also the fleet's liveness signal and cannot sit behind a diagnostic.
+
 ## Running the logger
 
 ### Using pipenv

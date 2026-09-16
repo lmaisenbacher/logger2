@@ -14,6 +14,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from ruamel.yaml import YAML
 
+import health
 from defs import LoggerError
 from db_writer import BufferedWriter
 from readings import (channels_missing_status, check_status_config,
@@ -188,6 +189,13 @@ if __name__ == "__main__":
         logger.error(msg)
         raise LoggerError(msg)
 
+    # Durable log file, installed after `_setup_logging` so the console
+    # configuration above stands: the service wrapper's stdout redirect
+    # is truncated on every restart, while this one rotates and
+    # survives. Also the point where the process gets the name it
+    # carries into its health telemetry.
+    health.setup_process_logging(config_path=config_path, config=CONF)
+
     DB_URL = CONF["Database"]["url"]
     DB_BUCKET = CONF["Database"]["bucket"]
     DB_ORG = CONF["Database"]["org"]
@@ -238,6 +246,7 @@ if __name__ == "__main__":
             flush_interval_ms=DB_BATCH_FLUSH_INTERVAL_MS,
             close_wait_ms=DB_BATCH_MAX_CLOSE_WAIT_MS,
             on_error=_on_write_error)
+        health.PROCESS_HEALTH.register_db_writer(db_writer)
 
         def write_points(points):
             """Queue `points`; returns at once, never raises."""
@@ -249,6 +258,15 @@ if __name__ == "__main__":
             """One blocking request (raises on failure)."""
             write_api.write(DB_BUCKET, DB_ORG, points)
 
+    def write_health_point(points):
+        """Write the health point, blocking. Runs on the emitter's own
+        thread, so it delays neither the polling loop nor the data
+        path, and it stays out of the buffered writer's queue: a
+        diagnostic must never displace a reading."""
+        write_api.write(DB_BUCKET, DB_ORG, points)
+
+    health.PROCESS_HEALTH.start(write_health_point)
+
     _db_closed = SimpleNamespace(done=False)
 
     def _close_db():
@@ -258,6 +276,8 @@ if __name__ == "__main__":
         if _db_closed.done:
             return
         _db_closed.done = True
+        # Before the write api it uses
+        health.PROCESS_HEALTH.stop()
         try:
             if db_writer is not None:
                 db_writer.close()
@@ -603,6 +623,7 @@ if __name__ == "__main__":
                 overrun = now - next_cycle
                 skipped = int(overrun // UPDATE_INTERVAL) + 1
                 next_cycle += skipped * UPDATE_INTERVAL
+                health.PROCESS_HEALTH.note_cycle_overrun(overrun * 1e3)
                 if now - last_overrun_warning >= OVERRUN_WARN_INTERVAL_S:
                     last_overrun_warning = now
                     breakdown = ', '.join(
