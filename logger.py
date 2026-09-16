@@ -631,7 +631,7 @@ if __name__ == "__main__":
                 overrun = now - next_cycle
                 skipped = int(overrun // UPDATE_INTERVAL) + 1
                 next_cycle += skipped * UPDATE_INTERVAL
-                health.PROCESS_HEALTH.note_cycle_overrun(overrun * 1e3)
+                health.PROCESS_HEALTH.note_cycle_overrun_ms(overrun * 1e3)
                 if now - last_overrun_warning >= OVERRUN_WARN_INTERVAL_S:
                     last_overrun_warning = now
                     breakdown = ', '.join(

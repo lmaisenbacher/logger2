@@ -367,9 +367,9 @@ def test_field_types_are_exact(process_health):
     rejects the whole request."""
     process_health.attach_counter(health._LogCounter())
     process_health.register_db_writer(FakeWriter(7, 1))
-    process_health.note_cycle_overrun(3.)
+    process_health.note_cycle_overrun_ms(3.)
     fields = process_health._build_point()['fields']
-    floats = ('uptime_s', 'loop_lag_ms')
+    floats = ('uptime_s', 'cycle_overrun_ms')
     ints = ('cycle_overruns_total', 'n_warnings', 'n_errors',
             'n_written', 'n_dropped')
     assert set(fields) == set(floats) | set(ints)
@@ -380,34 +380,42 @@ def test_field_types_are_exact(process_health):
 
 
 def test_non_finite_float_is_dropped_not_written(process_health):
-    process_health._lag_max_ms = float('nan')
+    process_health._overrun_max_ms = float('nan')
     fields = process_health._build_point()['fields']
-    assert 'loop_lag_ms' not in fields
+    assert 'cycle_overrun_ms' not in fields
     assert math.isfinite(fields['uptime_s'])
 
 
 def test_overrun_is_the_max_then_resets(process_health):
     for overrun in (12., 840., 3.):
-        process_health.note_cycle_overrun(overrun)
-    assert process_health._build_point()['fields']['loop_lag_ms'] == 840.
-    assert process_health._build_point()['fields']['loop_lag_ms'] == 0.
+        process_health.note_cycle_overrun_ms(overrun)
+    assert process_health._build_point()['fields']['cycle_overrun_ms'] == 840.
+    assert process_health._build_point()['fields']['cycle_overrun_ms'] == 0.
 
 
 def test_overrun_count_is_cumulative(process_health):
     """Cumulative survives a lost write and makes restarts visible;
     Grafana takes the difference."""
     for _ in range(3):
-        process_health.note_cycle_overrun(1.)
+        process_health.note_cycle_overrun_ms(1.)
     assert process_health._build_point()[
         'fields']['cycle_overruns_total'] == 3
-    process_health.note_cycle_overrun(1.)
+    process_health.note_cycle_overrun_ms(1.)
     assert process_health._build_point()[
         'fields']['cycle_overruns_total'] == 4
 
 
+def test_a_logger_writes_no_loop_lag(process_health):
+    """`loop_lag_ms` is a server's event-loop wake-up delay; a plain
+    polling loop has no event loop, so the field is absent rather than
+    zero - a zero would read as "the loop was free"."""
+    process_health.note_cycle_overrun_ms(500.)
+    assert 'loop_lag_ms' not in process_health._build_point()['fields']
+
+
 def test_overrun_never_raises_into_the_poll_loop(process_health):
     """It is called from the cycle that just overran."""
-    process_health.note_cycle_overrun(None)
+    process_health.note_cycle_overrun_ms(None)
     assert process_health._enabled
 
 
@@ -438,7 +446,7 @@ def test_setup_wires_the_singleton(tmp_path, monkeypatch):
 def test_state_stays_bounded(process_health):
     """The bug class that only shows after days of uptime."""
     for i in range(100000):
-        process_health.note_cycle_overrun(float(i % 7))
+        process_health.note_cycle_overrun_ms(float(i % 7))
         if i % 1000 == 0:
             process_health._build_point()
     assert not any(isinstance(v, (list, dict, set)) and len(v) > 8

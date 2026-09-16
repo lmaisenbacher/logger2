@@ -195,7 +195,7 @@ class ProcessHealth:
         self.host = _hostname()
         self._counter = None
         self._db_writers = []
-        self._lag_max_ms = 0.
+        self._overrun_max_ms = 0.
         self._overruns = 0
         self._enabled = True
         self._reject_streak = 0
@@ -221,20 +221,22 @@ class ProcessHealth:
 
     # -- collection ----------------------------------------------------
 
-    def note_cycle_overrun(self, overrun_ms):
-        """Record one cycle that overran its slot, from the poll loop.
+    def note_cycle_overrun_ms(self, overrun_ms):
+        """Record one cycle that ran past its interval, from the poll
+        loop.
 
-        The logger's counterpart to the servers' event-loop lag: it
-        answers "was this process keeping up?" independently of why,
-        which is exactly what the database could not say during the
-        2026-09-15 incident. Published as the maximum since the last
-        point, then reset, alongside a cumulative count.
+        Published as `cycle_overrun_ms`, the worst overrun since the
+        last point (then reset), plus the cumulative count
+        `cycle_overruns_total` - the same two fields a pydase server
+        writes for the same event, so the two are comparable. A logger
+        writes no `loop_lag_ms`: that is a server's event-loop wake-up
+        delay, and a plain polling loop has no event loop to measure.
         """
         try:
             with self._lock:
                 self._overruns += 1
-                if overrun_ms > self._lag_max_ms:
-                    self._lag_max_ms = overrun_ms
+                if overrun_ms > self._overrun_max_ms:
+                    self._overrun_max_ms = overrun_ms
         except Exception:
             pass
 
@@ -243,10 +245,10 @@ class ProcessHealth:
         with self._lock:
             fields = {
                 'uptime_s': float(now - self._t0),
-                'loop_lag_ms': float(self._lag_max_ms),
+                'cycle_overrun_ms': float(self._overrun_max_ms),
                 'cycle_overruns_total': int(self._overruns),
                 }
-            self._lag_max_ms = 0.
+            self._overrun_max_ms = 0.
             if self._counter is not None:
                 fields['n_warnings'] = int(self._counter.n_warnings)
                 fields['n_errors'] = int(self._counter.n_errors)

@@ -116,19 +116,21 @@ The file also carries the records of pydase's own logger, which never reach the 
 
 ## Health telemetry
 
-Once per 10 s the logger writes one point describing ITSELF, from a dedicated thread that touches neither the polling loop nor the data path. The [unitrap-pydase-apps](https://github.com/matterwaves/unitrap-pydase-apps) servers write the same point, so one dashboard covers the fleet (`grafana/fleet_health_dashboard.json` there).
+Once per 10 s the logger writes one point describing ITSELF, from a dedicated thread that touches neither the polling loop nor the data path. The [unitrap-pydase-apps](https://github.com/matterwaves/unitrap-pydase-apps) servers write the same point, so one dashboard covers the fleet: the Processes row of the lab's Housekeeping dashboard (`grafana/housekeeping_dashboard.json` there).
 
 Measurement `serverhealth`, deliberately not the logger's own measurements - a logger serves many devices, in many measurements, and this describes none of them. Tags: `process`, `host`, plus `device` (the process name again) and `sensor="Health"`.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `uptime_s` | float | Seconds since the logger started |
-| `loop_lag_ms` | float | Largest cycle overrun since the last point |
-| `cycle_overruns_total` | int | Cycles that overran their slot, cumulative |
+| `cycle_overrun_ms` | float | Worst amount a cycle's work ran past its interval since the last point |
+| `cycle_overruns_total` | int | Cycles that ran past their interval, cumulative |
 | `n_warnings` | int | WARNING records logged, cumulative |
 | `n_errors` | int | ERROR records logged, cumulative |
 | `n_written` | int | Records the buffered writer delivered, cumulative |
 | `n_dropped` | int | Records the buffered writer discarded, cumulative |
+
+A logger writes no `loop_lag_ms`: that field is a pydase server's event-loop wake-up delay, and a plain polling loop has no event loop to measure. Its cycle overruns, a device read outlasting the interval being the usual cause, are the same event the servers report under the same two fields, so those are comparable across the fleet. The "worst" field is the maximum seen in the ten seconds before each point, reset at every point; a zero means no cycle overran in that interval.
 
 InfluxDB pins a field's type per measurement, and the servers write this same measurement, so every field is coerced at one place in `health.ProcessHealth._build_point` and the tests assert the exact Python type of each. The write counters are absent in synchronous mode. A point the database REJECTS three times in a row disables the telemetry for this process, with one ERROR line saying so; nothing else the logger writes is affected.
 
