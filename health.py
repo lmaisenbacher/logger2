@@ -33,14 +33,24 @@ import threading
 import time
 from pathlib import Path
 
+import fleet_version
 from db_writer import BufferedWriter
 
 logger = logging.getLogger(__name__)
 
 # Environment override for the log directory
 LOG_DIR_ENV = 'UNITRAP_LOG_DIR'
-# Default directory, under the user's home on both Windows and Linux
-LOG_DIR_DEFAULT_PARTS = ('logs', 'unitrap')
+# Default directory. Windows: <system drive>\logs\unitrap - a folder
+# directly under the drive root, because Windows grants Authenticated
+# Users modify rights on everything beneath such a folder by inheritance,
+# whoever created it, so a service running as LocalSystem and a person in
+# a terminal share one directory and can open each other's files, which
+# the name lock relies on; the account's own profile is useless
+# (LocalSystem's is C:\WINDOWS\system32\config\systemprofile) and
+# ProgramData would need permissions added. Linux: ~/logs/unitrap, the
+# services there run as the user.
+LOG_DIR_WINDOWS_PARTS = ('logs', 'unitrap')
+LOG_DIR_HOME_PARTS = ('logs', 'unitrap')
 # The process name is the config's mandatory key in this section
 PROCESS_NAME_SECTION = 'Logger'
 PROCESS_NAME_KEY = 'name'
@@ -76,6 +86,14 @@ SERVER_HEALTH_INTERVAL_S = 10.0
 # Consecutive rejected writes (4xx below 429, which retrying cannot
 # fix) after which this process stops emitting health points
 SERVER_HEALTH_REJECT_LIMIT = 3
+# The event the first health point after a start carries, in the fleet's
+# event convention: a comma-free `event` text stating what happened,
+# repeating no identifier the point carries as a tag or another field
+# (the process is a tag), plus an integer `event_code`
+EVENT_STARTED = 'started'
+EVENT_CODE_STARTED = 1
+# The checkout this module runs from, for `capture_software_versions`
+REPO_ROOT = Path(__file__).resolve().parent
 
 
 class _AnsiStripFormatter(logging.Formatter):
@@ -185,6 +203,11 @@ class ProcessHealth:
     fleet's liveness signal and cannot sit behind a diagnostic — a
     health point the database rejects for good, a field-type conflict
     being enough, would take it down with it.
+
+    Beside the numbers, every point carries the software the process
+    runs as string fields (`set_software`: version, commit, dependency
+    versions), and the first point written after a start carries the
+    `started` event, so a restart is one annotation in Grafana.
     """
 
     def __init__(self, interval_s=SERVER_HEALTH_INTERVAL_S):
@@ -197,6 +220,8 @@ class ProcessHealth:
         self._db_writers = []
         self._overrun_max_ms = 0.
         self._overruns = 0
+        self._software = {}
+        self._pending_event = None
         self._enabled = True
         self._reject_streak = 0
         self._warned = set()
@@ -209,6 +234,17 @@ class ProcessHealth:
     def set_process_name(self, name):
         with self._lock:
             self.process = name
+
+    def set_software(self, fields):
+        """Register the software fields every point carries: the dict
+        `fleet_version.capture_versions` returns, values stringified."""
+        with self._lock:
+            self._software = {str(k): str(v) for k, v in dict(fields).items()}
+
+    def software_fields(self):
+        """A copy of the registered software fields."""
+        with self._lock:
+            return dict(self._software)
 
     def attach_counter(self, counter):
         with self._lock:
@@ -257,6 +293,11 @@ class ProcessHealth:
                     getattr(w, 'n_written', 0) for w in self._db_writers))
                 fields['n_dropped'] = int(sum(
                     getattr(w, 'n_dropped', 0) for w in self._db_writers))
+            for key, value in self._software.items():
+                fields[key] = str(value)
+            if self._pending_event is not None:
+                fields['event'] = str(self._pending_event[0])
+                fields['event_code'] = int(self._pending_event[1])
             tags = {'process': self.process or 'unknown', 'host': self.host}
         # `device` and `sensor` repeat the process name so the fleet's
         # existing Flux helpers, which group on those tags, still work
@@ -267,7 +308,8 @@ class ProcessHealth:
         # coerced at this single site: InfluxDB pins a field's type per
         # measurement, and one int where a float went before rejects
         # the whole request — across the loggers AND the servers, which
-        # share this measurement.
+        # share this measurement; the software fields and the event text
+        # are strings for the same reason, the code an int.
         return {
             'measurement': SERVER_HEALTH_MEASUREMENT,
             'tags': tags,
@@ -282,12 +324,19 @@ class ProcessHealth:
         """Start emitting, using a SYNCHRONOUS write function.
 
         The first caller wins: one process emits one series, however
-        many devices it polls.
+        many devices it polls. The first point goes out at once, not
+        after an interval, and carries the `started` event; it stays
+        pending until a point carrying it is WRITTEN, because a
+        database still booting after a lab-wide power cycle is exactly
+        when a start annotation matters, and the point's `uptime_s`
+        then says how late it is. A rejection drops it instead, so the
+        numbers get their chance.
         """
         with self._lock:
             if self._thread is not None or not self._enabled:
                 return
             self._write = write_func
+            self._pending_event = (EVENT_STARTED, EVENT_CODE_STARTED)
             self._stop.clear()
             self._thread = threading.Thread(
                 target=self._run, name='process-health', daemon=True)
@@ -304,12 +353,14 @@ class ProcessHealth:
             thread.join(timeout=2.)
 
     def _run(self):
-        while not self._stop.wait(self._interval_s):
+        while True:
             try:
                 self._emit_once()
             except Exception as e:
                 self._warn_once('emit', 'Could not emit the process health'
                                         ' point: %s', e)
+            if self._stop.wait(self._interval_s):
+                return
 
     def _emit_once(self):
         with self._lock:
@@ -324,6 +375,8 @@ class ProcessHealth:
         else:
             with self._lock:
                 self._reject_streak = 0
+                if 'event' in point['fields']:
+                    self._pending_event = None
 
     def _on_write_failed(self, exc):
         """Count the failure and, for a rejection retrying cannot fix,
@@ -333,6 +386,7 @@ class ProcessHealth:
             if not BufferedWriter.is_rejected(exc):
                 self._reject_streak = 0
             else:
+                self._pending_event = None
                 self._reject_streak += 1
                 if self._reject_streak >= SERVER_HEALTH_REJECT_LIMIT:
                     self._enabled = False
@@ -360,37 +414,68 @@ class ProcessHealth:
 PROCESS_HEALTH = ProcessHealth()
 
 
+def default_log_dir(windows=None):
+    """The directory a process logs to when nothing overrides it.
+
+    See `LOG_DIR_WINDOWS_PARTS` for why Windows gets a folder under the
+    drive root rather than a profile. `windows` defaults to the running
+    platform; tests pass it explicitly.
+    """
+    if windows is None:
+        windows = os.name == 'nt'
+    if windows:
+        drive = os.environ.get('SystemDrive', 'C:')
+        return Path(drive + os.sep).joinpath(*LOG_DIR_WINDOWS_PARTS)
+    return Path.home().joinpath(*LOG_DIR_HOME_PARTS)
+
+
+_LOG_DIR_CACHE = {}
+
+
 def resolve_log_dir(log_dir=None):
     """The directory this process logs to, or None when none is usable.
 
-    `UNITRAP_LOG_DIR` wins, then the argument, then `~/logs/unitrap`.
-    The home lookup is guarded: a Windows service running as
-    LocalSystem has no usable profile, and `expanduser` can hand back a
-    literal '~' that would otherwise become a directory in the working
-    directory. Falls back to the temp directory so a process without a
-    home still logs somewhere.
+    `UNITRAP_LOG_DIR` wins, then the argument, then `default_log_dir()`.
+    Then the fallbacks: the account's own home (guarded, because
+    `expanduser` can hand back a literal '~' that would become a
+    directory in the working directory) and the temp directory, so a
+    process logs SOMEWHERE - but a fallback is announced with a
+    warning, since it is exactly how a service ends up logging into a
+    place nobody looks. Resolved once per process.
     """
+    key = (os.environ.get(LOG_DIR_ENV), None if log_dir is None else str(log_dir))
+    if key in _LOG_DIR_CACHE:
+        return _LOG_DIR_CACHE[key]
     candidates = []
-    from_env = os.environ.get(LOG_DIR_ENV)
-    if from_env:
-        candidates.append(Path(from_env))
+    if key[0]:
+        candidates.append(('%s' % LOG_DIR_ENV, Path(key[0])))
     if log_dir is not None:
-        candidates.append(Path(log_dir))
+        candidates.append(('the configured directory', Path(log_dir)))
+    candidates.append(('the default directory', default_log_dir()))
     try:
         home = Path.home()
         if str(home) not in ('~', ''):
-            candidates.append(home.joinpath(*LOG_DIR_DEFAULT_PARTS))
+            candidates.append(('the account\'s home',
+                               home.joinpath(*LOG_DIR_HOME_PARTS)))
     except Exception:
         pass
-    candidates.append(Path(tempfile.gettempdir()).joinpath(
-        *LOG_DIR_DEFAULT_PARTS))
-    for candidate in candidates:
+    candidates.append(('the temp directory', Path(
+        tempfile.gettempdir()).joinpath(*LOG_DIR_HOME_PARTS)))
+    failures = []
+    resolved = None
+    for what, candidate in candidates:
         try:
             candidate.mkdir(parents=True, exist_ok=True)
-            return candidate
-        except Exception:
-            continue
-    return None
+            resolved = candidate
+            break
+        except Exception as e:
+            failures.append(f'{what} \'{candidate}\' ({e})')
+    if failures and resolved is not None:
+        logger.warning(
+            'Logging to %s because these could not be used: %s',
+            resolved, '; '.join(failures))
+    _LOG_DIR_CACHE[key] = resolved
+    return resolved
 
 
 class ProcessNameError(Exception):
@@ -585,6 +670,29 @@ def setup_process_logging(name, log_dir=None, max_bytes=LOG_MAX_BYTES,
     return Path(handler.baseFilename)
 
 
+def capture_software_versions(name, app_version=None):
+    """Capture the software this process runs ONCE, hand it to the
+    health points, and log one line naming it.
+
+    `app_version` defaults to the `[project]` version of this
+    checkout's pyproject.toml (`fleet_version.version_from_pyproject`);
+    the commit comes from the checkout (`REPO_ROOT`), the dependency
+    versions from the installed distributions. Returns the fields, `{}`
+    when nothing could be captured. Never raises: a logger must run
+    whether or not it can say what it is.
+    """
+    try:
+        if app_version is None:
+            app_version = fleet_version.version_from_pyproject(REPO_ROOT)
+        fields = fleet_version.capture_versions(app_version, REPO_ROOT)
+        PROCESS_HEALTH.set_software(fields)
+        logger.info('%s %s', name, fleet_version.describe(fields))
+        return fields
+    except Exception as e:
+        logger.warning('Could not capture the software version: %s', e)
+        return {}
+
+
 def teardown_process_logging():
     """Remove this process's file logging again. FOR TESTS ONLY.
 
@@ -616,3 +724,5 @@ def teardown_process_logging():
             except Exception:
                 pass
     release_process_name()
+    PROCESS_HEALTH.set_software({})
+    _LOG_DIR_CACHE.clear()

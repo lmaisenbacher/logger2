@@ -1,0 +1,45 @@
+# logger2 is a uv project: `uv sync` in this checkout creates a
+# virtual environment with everything below, `uv run logger.py -c
+# <config.ini>` runs a logger in it. There is no build system on
+# purpose - logger2 is a set of scripts run from the checkout, not a
+# package to install. The lab's shared environment (~/venvs/unitrap)
+# declares these dependencies too and runs the same scripts with its
+# own interpreter.
+#
+# The version below is the one every logger publishes (see
+# `fleet_version.py` for the bump policy); bump it in the same commit
+# as the change it describes.
+[project]
+name = "logger2"
+version = "1.0.0"
+description = "Multi-purpose data logging software for the Unitrap experiment"
+readme = "README.md"
+requires-python = ">=3.11"
+# The direct imports of logger.py and the device modules
+dependencies = [
+    "amodevices>=0.1.23",
+    "influxdb-client>=1.50.0",
+    "numpy>=2.4.0",
+    "pydase>=0.10.21",
+    "pint>=0.24.4,<0.25.0",
+    "pymodbus>=3.14.0",
+    "pyserial>=3.5",
+    "requests>=2.34.0",
+    "ruamel-yaml>=0.19.1",
+    "urllib3>=2.0",
+    "aiohttp>=3.9",
+    "python-socketio>=5.11",
+]
+
+[tool.uv.sources]
+amodevices = { git = "https://github.com/lmaisenbacher/amodevices.git" }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+# `pytest` collects the offline tests only: the two scripts below talk
+# to lab hardware and the lab database and are run by hand
+[tool.pytest.ini_options]
+addopts = "--ignore=test_dev_rp_lockbox.py --ignore=test_logger.py"

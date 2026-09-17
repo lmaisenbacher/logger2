@@ -195,7 +195,9 @@ if __name__ == "__main__":
     # configuration above stands: the service wrapper's stdout redirect
     # is truncated on every restart, while this one rotates and
     # survives. A missing or taken name fails the start like any other
-    # configuration error.
+    # configuration error. The software version (pyproject.toml) and
+    # the checkout's commit are captured once, here, and ride every
+    # health point.
     try:
         PROCESS_NAME = health.process_name_from_config(CONF, config_path)
         health.claim_process_name(PROCESS_NAME)
@@ -203,6 +205,7 @@ if __name__ == "__main__":
         logger.error(str(err))
         raise LoggerError(str(err)) from err
     health.setup_process_logging(PROCESS_NAME)
+    health.capture_software_versions(PROCESS_NAME)
 
     DB_URL = CONF["Database"]["url"]
     DB_BUCKET = CONF["Database"]["bucket"]

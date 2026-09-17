@@ -101,21 +101,52 @@ def test_env_dir_override(tmp_path, monkeypatch):
     assert 'gauge did not answer' in read_log(path)
 
 
-def test_default_dir_is_home_logs_unitrap(tmp_path, monkeypatch):
-    monkeypatch.delenv(health.LOG_DIR_ENV, raising=False)
+def test_default_dir_on_windows_is_under_the_drive_root(monkeypatch):
+    """Not the account's profile: a service running as LocalSystem has
+    C:\\WINDOWS\\system32\\config\\systemprofile for one, and a folder
+    under the drive root is writable by every account, which the name
+    lock needs to see across a service and a terminal."""
+    monkeypatch.setenv('SystemDrive', 'D:')
+    assert health.default_log_dir(windows=True) == Path('D:/') / 'logs' / 'unitrap'
+
+
+def test_default_dir_on_linux_is_home_logs_unitrap(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    assert health.resolve_log_dir() == tmp_path / 'logs' / 'unitrap'
+    assert health.default_log_dir(windows=False) == tmp_path / 'logs' / 'unitrap'
 
 
-def test_falls_back_when_directory_unusable(tmp_path, monkeypatch):
-    """A service without a usable profile still logs somewhere."""
+def test_resolves_to_the_default_when_nothing_overrides(tmp_path, monkeypatch):
+    monkeypatch.delenv(health.LOG_DIR_ENV, raising=False)
+    monkeypatch.setattr(health, 'default_log_dir',
+                        lambda windows=None: tmp_path / 'default')
+    assert health.resolve_log_dir() == tmp_path / 'default'
+
+
+def test_env_override_beats_the_default(tmp_path, monkeypatch):
+    monkeypatch.setenv(health.LOG_DIR_ENV, str(tmp_path / 'chosen'))
+    monkeypatch.setattr(health, 'default_log_dir',
+                        lambda windows=None: tmp_path / 'default')
+    assert health.resolve_log_dir() == tmp_path / 'chosen'
+
+
+def test_falls_back_when_directory_unusable_and_says_so(tmp_path, monkeypatch,
+                                                        caplog):
+    """A process whose directory cannot be made still logs somewhere,
+    and the warning names what failed: silently landing in a fallback
+    is how a service ends up logging where nobody looks."""
     blocker = tmp_path / 'a-file'
     blocker.write_text('not a directory', encoding='utf-8')
     monkeypatch.setenv(health.LOG_DIR_ENV, str(blocker / 'sub'))
+    monkeypatch.setattr(health, 'default_log_dir',
+                        lambda windows=None: blocker / 'other')
     monkeypatch.setattr(Path, 'home', classmethod(
         lambda cls: (_ for _ in ()).throw(RuntimeError('no home'))))
-    directory = health.resolve_log_dir()
+    with caplog.at_level(logging.WARNING):
+        directory = health.resolve_log_dir()
     assert directory is not None and directory.is_dir()
+    assert 'could not be used' in caplog.text
+    assert health.LOG_DIR_ENV in caplog.text
+    assert 'the default directory' in caplog.text
 
 
 def test_console_handler_survives(tmp_path, monkeypatch):
@@ -599,3 +630,171 @@ def test_warnings_are_logged_once(process_health, caplog):
         for _ in range(20):
             process_health._on_write_failed(OSError('connection refused'))
     assert caplog.text.count('Could not write the process health point') == 1
+
+
+# -- the software fields and the start event -------------------------
+
+
+def test_software_fields_are_strings_on_every_point(process_health):
+    """Strings beside the numbers: new keys, so no type conflict with
+    what the database holds, but pinned like every other field."""
+    process_health.set_software({'software_version': '1.0.0',
+                                 'software_commit': 'abc1234+dirty',
+                                 'pydase_version': 0.1})
+    for _ in range(2):
+        fields = process_health._build_point()['fields']
+        assert fields['software_version'] == '1.0.0'
+        assert fields['software_commit'] == 'abc1234+dirty'
+        assert fields['pydase_version'] == '0.1'
+        for key in ('software_version', 'software_commit', 'pydase_version'):
+            assert type(fields[key]) is str, key
+
+
+def test_no_software_registered_means_no_software_fields(process_health):
+    assert process_health.software_fields() == {}
+    fields = process_health._build_point()['fields']
+    assert not any(key.endswith('_version') for key in fields)
+
+
+def test_software_fields_returns_a_copy(process_health):
+    process_health.set_software({'software_version': '1.0.0'})
+    process_health.software_fields()['software_version'] = 'tampered'
+    assert process_health.software_fields() == {'software_version': '1.0.0'}
+
+
+def test_no_event_before_start(process_health):
+    fields = process_health._build_point()['fields']
+    assert 'event' not in fields and 'event_code' not in fields
+
+
+def test_first_point_is_immediate_and_carries_started():
+    """A restarted logger shows up on the dashboard within a second,
+    and its first point is the start annotation: no second write path."""
+    slow = health.ProcessHealth(interval_s=10.)
+    points = []
+    done = threading.Event()
+
+    def write(batch):
+        points.extend(batch)
+        done.set()
+
+    t0 = time.monotonic()
+    slow.start(write)
+    try:
+        assert done.wait(1.), 'no point within a second'
+    finally:
+        slow.stop()
+    assert time.monotonic() - t0 < 1.
+    fields = points[0]['fields']
+    assert fields['event'] == health.EVENT_STARTED
+    assert type(fields['event']) is str
+    assert fields['event_code'] == health.EVENT_CODE_STARTED
+    assert type(fields['event_code']) is int
+
+
+def test_later_points_carry_no_event(process_health):
+    points = []
+    done = threading.Event()
+
+    def write(batch):
+        points.extend(batch)
+        if len(points) >= 3:
+            done.set()
+
+    process_health.start(write)
+    try:
+        assert done.wait(5.)
+    finally:
+        process_health.stop()
+    assert 'event' in points[0]['fields']
+    assert all('event' not in p['fields'] and 'event_code' not in p['fields']
+               for p in points[1:])
+
+
+def test_started_event_waits_for_a_successful_write(process_health):
+    """A database still booting after a lab-wide power cycle is exactly
+    when the start annotation matters; the event rides every point
+    until one gets through."""
+    points = []
+    done = threading.Event()
+
+    def write(batch):
+        points.extend(batch)
+        if len(points) >= 4:
+            done.set()
+        if len(points) <= 2:
+            raise OSError('connection refused')
+
+    process_health.start(write)
+    try:
+        assert done.wait(5.)
+    finally:
+        process_health.stop()
+    assert [('event' in p['fields']) for p in points[:4]] == [
+        True, True, True, False]
+
+
+def test_rejected_first_point_drops_the_event(process_health):
+    """A rejection retrying cannot fix must not keep the event, or the
+    numbers never get their chance."""
+    points = []
+
+    def write(batch):
+        points.extend(batch)
+        if len(points) == 1:
+            raise Rejected(422)
+
+    process_health._write = write
+    process_health._pending_event = (health.EVENT_STARTED,
+                                     health.EVENT_CODE_STARTED)
+    process_health._emit_once()
+    process_health._emit_once()
+    assert 'event' in points[0]['fields']
+    assert 'event' not in points[1]['fields']
+    assert process_health._enabled
+
+
+def test_capture_software_versions_wires_the_singleton(monkeypatch, caplog):
+    """The startup line names what the logger runs, and the health
+    points carry the same. The commit is faked: the result must not
+    depend on the developer's checkout."""
+    monkeypatch.setattr(health.fleet_version, 'capture_commit',
+                        lambda root: 'abc1234')
+    with caplog.at_level(logging.INFO):
+        fields = health.capture_software_versions(
+            'logger-demo', app_version='9.9.9')
+    try:
+        assert fields['software_version'] == '9.9.9'
+        assert fields['software_commit'] == 'abc1234'
+        assert health.PROCESS_HEALTH.software_fields() == fields
+        assert 'logger-demo 9.9.9 (abc1234)' in caplog.text
+        point = health.PROCESS_HEALTH._build_point()['fields']
+        assert point['software_version'] == '9.9.9'
+    finally:
+        health.PROCESS_HEALTH.set_software({})
+
+
+def test_default_version_comes_from_the_pyproject(monkeypatch):
+    """logger2's number lives in pyproject.toml, not in a script."""
+    import tomllib
+    monkeypatch.setattr(health.fleet_version, 'capture_commit',
+                        lambda root: None)
+    with open(health.REPO_ROOT / 'pyproject.toml', 'rb') as f:
+        expected = tomllib.load(f)['project']['version']
+    fields = health.capture_software_versions('logger-demo')
+    try:
+        assert fields['software_version'] == expected
+    finally:
+        health.PROCESS_HEALTH.set_software({})
+
+
+def test_a_failing_capture_never_stops_a_start(monkeypatch, caplog):
+    def explode(*args, **kwargs):
+        raise RuntimeError('boom')
+
+    monkeypatch.setattr(health.fleet_version, 'capture_versions', explode)
+    with caplog.at_level(logging.WARNING):
+        assert health.capture_software_versions(
+            'demo', app_version='1.0.0') == {}
+    assert 'Could not capture the software version' in caplog.text
+    assert health.PROCESS_HEALTH.software_fields() == {}

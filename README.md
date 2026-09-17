@@ -20,29 +20,23 @@ Maintained by Lothar Maisenbacher (UC Berkeley), partly based on earlier softwar
 
 ## Preparation
 
-### Installing pipenv
+### Installing uv
 
-[pipenv](https://pipenv.pypa.io/) is used to create a virtual environment and install the required packages for logger2. pipenv keeps track of all dependencies (i.e., required Python packages) in the file "Pipfile" in the repository.
-
-The pipenv documentation recommends installing it as a user-package with `pip install --user pipenv`. When running logger2 as a service/daemon, make sure that it is run under the user that pipenv was installed for, as it will not be found otherwise.
+logger2 is a [uv](https://docs.astral.sh/uv/) project: "pyproject.toml" in the repository declares its dependencies and its version, and "uv.lock" pins them. Install uv as its documentation describes, as a user-level install. When running logger2 as a service/daemon, run it under the user that uv was installed for, as it will not be found otherwise.
 
 ### Installing dependencies
 
-Once pipenv is installed, the required dependencies of logger2 can be installed in a virtual environment, which will be created if not already present, by navigating to the directory where "Pipfile" is located (here just the repository itself) and running
+In the repository directory, run
 
 ```
-pipenv install
+uv sync
 ```
 
-It might be desirable to use the option `--skip-lock` for the above command, which always uses "Pipfile" to resolve the requirements and not "Pipfile.lock", and does not write an updated "Pipfile.lock". This might be necessary when switching between different system architectures (e.g., Windows on AMD64 to Linux on Raspberry Pi).
-
-To check whether the dependencies have been installed correctly, one can run Python in the newly created environment with
+which creates the virtual environment ".venv" there with every dependency, fetching a matching Python interpreter if the host has none. To check that everything is in place, run the logger's tests in that environment with
 
 ```
-pipenv run python
+uv run pytest
 ```
-
-and import the dependencies there.
 
 On Raspberry Pi, importing numpy might not work right away, as compiled libraries are missing. Following https://github.com/numpy/numpy/issues/16012#issuecomment-615927988, these libraries can be installed with
 
@@ -50,22 +44,15 @@ On Raspberry Pi, importing numpy might not work right away, as compiled librarie
 sudo apt-get install libatlas-base-dev
 ```
 
-### Forcing upgrade of package amodevices
+The lab's shared environment (`~/venvs/unitrap`, its own uv project) declares the same dependencies. The loggers on the lab PCs run from it with its interpreter (`<venv>/Scripts/python.exe logger.py` on Windows) and need no ".venv" of their own.
 
-Currently, the custom package amodevices is installed not from PyPI, but from its [GitHub repo](https://github.com/lmaisenbacher/amodevices).
-This may lead, when using pipenv and pip to reinstall packages (to, e.g., upgrade to the newest version), to not always the latest commit from the repo being used.
+### Upgrading package amodevices
 
-To force pip to upgrade amodevices to the latest commit, use
-
-```
-pip install git+https://github.com/lmaisenbacher/amodevices.git#egg=amodevices --force-reinstall
-```
-
-When using pipenv, first open the pipenv shell (again in the directory where Pipfile is located) and then run the pip command
+The custom package amodevices is installed not from PyPI, but from its [GitHub repo](https://github.com/lmaisenbacher/amodevices), pinned to a commit in "uv.lock". To move the pin to the latest commit and install it, run
 
 ```
-pipenv shell
-pip install git+https://github.com/lmaisenbacher/amodevices.git#egg=amodevices --force-reinstall
+uv lock --upgrade-package amodevices
+uv sync
 ```
 
 ### Adapting configuration
@@ -94,10 +81,13 @@ Every 10 s, one heartbeat point per device is written to that device's measureme
 The logger writes a rotating log file, in addition to whatever its console output is redirected to:
 
 ```
-~/logs/unitrap/<name>.log
+C:\logs\unitrap\<name>.log      Windows (the system drive)
+~/logs/unitrap/<name>.log       Linux
 ```
 
-on Windows and Linux alike, up to six files of 10 MB. The service wrappers (FireDaemon, systemd) truncate their stdout redirect on every restart, so the log of a session that misbehaved is destroyed by the restart used to cure it; these files survive it.
+up to six files of 10 MB. The service wrappers (FireDaemon, systemd) truncate their stdout redirect on every restart, so the log of a session that misbehaved is destroyed by the restart used to cure it; these files survive it.
+
+The Windows location is a folder directly under the drive root on purpose. The FireDaemon services run as LocalSystem, whose profile is `C:\WINDOWS\system32\config\systemprofile`, so a per-account location puts a service's log where nobody looks and a terminal run of the same logger somewhere else. Windows grants Authenticated Users modify rights on everything beneath a folder created under the drive root, whoever created it, so `C:\logs\unitrap` is shared by the services and by anyone in a terminal without a permission being touched - and the name lock below only works if both can open the same file. Whenever the directory a logger ends up logging to is not the one it asked for, its first log lines say so and why.
 
 `<name>` is the `[Logger]` key `name` in "config.ini", and it is MANDATORY: a config without one refuses to start, with a message naming the file and the key. The same string is the `process` tag of the health points below. It must equal the service name (the systemd unit or FireDaemon service name, which is also the Name column of the Notion list of loggers and servers), so that the log file, the database series, the service and the list all agree:
 
@@ -108,7 +98,7 @@ name = logger-cavity-temperature-monitor
 
 The name lives in the config and nowhere else, deliberately. Deriving it from the config's location tied the identity to a directory layout (and every logger's config is called "config.ini", so naming from the file gave ten loggers one name), and reading it from the service definition would rely on every service being set up correctly, which is exactly what goes wrong when in doubt. Letters, digits, `.`, `_` and `-` only.
 
-At startup the logger also takes a host-wide lock on its name (`~/logs/unitrap/<name>.lock`, an OS file lock that dies with the process, so a crash cannot leave it behind). A second live process with the same name on the same host refuses to start and says which name is taken, which catches the easiest mistake there is: a copied config with the name left unchanged. Two processes sharing a name would write one log file, each rotating it out from under the other, and one health series with two uptimes interleaved. The claim is retried for a few seconds, because the operating system frees a dead holder's lock a few milliseconds after the process is gone and the service wrappers restart a crashed process at once.
+At startup the logger also takes a host-wide lock on its name (`<name>.lock` in the log directory, an OS file lock that dies with the process, so a crash cannot leave it behind). A second live process with the same name on the same host refuses to start and says which name is taken, which catches the easiest mistake there is: a copied config with the name left unchanged. Two processes sharing a name would write one log file, each rotating it out from under the other, and one health series with two uptimes interleaved. The claim is retried for a few seconds, because the operating system frees a dead holder's lock a few milliseconds after the process is gone and the service wrappers restart a crashed process at once.
 
 `UNITRAP_LOG_DIR` overrides the log directory, for a host that keeps its logs elsewhere.
 
@@ -129,6 +119,14 @@ Measurement `serverhealth`, deliberately not the logger's own measurements - a l
 | `n_errors` | int | ERROR records logged, cumulative |
 | `n_written` | int | Records the buffered writer delivered, cumulative |
 | `n_dropped` | int | Records the buffered writer discarded, cumulative |
+| `software_version` | string | logger2's version, see Version below |
+| `software_commit` | string | The checkout's short git commit, `+dirty` when tracked files are modified |
+| `amodevices_version` | string | The installed amodevices version |
+| `pydase_version` | string | The installed pydase version |
+| `event` | string | `started`, on the first point written after a start only |
+| `event_code` | int | 1 with `event` |
+
+The first point goes out at once when the logger starts, not after an interval, and carries the `started` event; it stays pending until a point carrying it is written, so a database still booting after a lab-wide power cycle gets the start annotation late rather than never (that point's `uptime_s` says how late). The Housekeeping dashboard shows these as its "Process starts" annotations.
 
 A logger writes no `loop_lag_ms`: that field is a pydase server's event-loop wake-up delay, and a plain polling loop has no event loop to measure. Its cycle overruns, a device read outlasting the interval being the usual cause, are the same event the servers report under the same two fields, so those are comparable across the fleet. The "worst" field is the maximum seen in the ten seconds before each point, reset at every point; a zero means no cycle overran in that interval.
 
@@ -136,17 +134,25 @@ InfluxDB pins a field's type per measurement, and the servers write this same me
 
 The health point deliberately does not ride the clock-sync heartbeat, which is written per DEVICE: an appended health point would emit once per device, fifteen identical points every 10 s on a populated logger. The heartbeat is also the fleet's liveness signal and cannot sit behind a diagnostic.
 
+## Version
+
+logger2's version is the `[project]` version in "pyproject.toml", manual SemVer, bumped in the same commit as the change it describes: PATCH for fixes and refinements that change nothing about what is recorded, MINOR for a new capability (a device module, a channel type, a logged quantity), MAJOR for a change older readers of the loggers' database series would misread.
+
+At startup the logger captures, once, that version, the checkout's short git commit (`+dirty` when tracked files are modified) and the installed amodevices and pydase versions (`fleet_version.py`, identical in [unitrap-pydase-apps](https://github.com/matterwaves/unitrap-pydase-apps), where each server declares its own `__version__`). A `git pull` under a running logger changes the checkout, not the running code, so the values describe the process until its restart. They show up in the startup log line (`logger-lockbox 1.0.0 (dd3d5d1), pydase 0.10.21, amodevices 0.1.23`) and as the string fields on every health point above, which the Housekeeping dashboard's Fleet table lists as Version, Commit, amodevices and pydase. A missing pyproject, a missing git, a refused probe each cost one WARNING and leave the field absent; nothing here can stop a logger from starting.
+
+The Windows services run as LocalSystem while the checkouts belong to the Unitrap user, and git refuses a repository owned by another account unless `safe.directory` names it; every call names it on the command line, and if git still cannot run the hash is read from the ".git" directory itself, without the dirty check, with a WARNING saying so.
+
 ## Running the logger
 
-### Using pipenv
+### Stand-alone
 
-To run the logger in the newly created virtual environment, use
+To run the logger in the repository's virtual environment, use
 
 ```
-pipenv run python logger.py
+uv run logger.py
 ```
 
-The file "run.bat" in the repository just contains this line for convenience.
+(`uv run logger.py -c /path/to/config.ini` for a specific configuration). The file "run.bat" in the repository is a template for a Windows service or shortcut doing the same. From the lab's shared environment, run `python logger.py` with that environment's interpreter instead.
 
 ### As a service/daemon under Linux
 
@@ -163,23 +169,23 @@ Continuing the example of the laser chiller, the configuration file can e.g. loo
 ```
 [Unit]
 Description=Logger for chiller for 1064 nm fiber amplifier
-After=multi-user.traget
+After=multi-user.target
 
 [Service]
 Type=simple
 Restart=always
 WorkingDirectory=/home/rp-chiller/Coding/logger2
-ExecStart=/home/rp-chiller/.local/bin/pipenv run python /home/rp-chiller/Coding/logger2/logger.py
+ExecStart=/home/rp-chiller/.local/bin/uv run logger.py
 User=rp-chiller
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-Importantly, the daemon is run under the user "rp-chiller", as given by `User=rp-chiller`, which is the user for which pipenv was installed here. Also important is to define the working directory with `WorkingDirectory=...` to be the directory where the virtual environment of pipenv was initialized, and where the configuration file "config.ini" and the device JSON file defined in that configuration file are located, which here is just the directory of the repository itself. To use a different "config.ini" - and the device JSON defined in that "config.ini" - use the `-c` command line argument, e.g., to use "home/rp-chiller/Coding/logger2-config/chiller/config.ini":
+Importantly, the daemon is run under the user "rp-chiller", as given by `User=rp-chiller`, which is the user for which uv was installed here. Also important is to define the working directory with `WorkingDirectory=...` to be the repository directory, where uv finds "pyproject.toml" and the virtual environment, and where the configuration file "config.ini" and the device JSON file defined in that configuration file are located, which here is just the directory of the repository itself. To use a different "config.ini" - and the device JSON defined in that "config.ini" - use the `-c` command line argument, e.g., to use "home/rp-chiller/Coding/logger2-config/chiller/config.ini":
 
 ```
-ExecStart=/home/rp-chiller/.local/bin/pipenv run python /home/rp-chiller/Coding/logger2/logger.py -c /home/rp-chiller/Coding/logger2-config/chiller/config.ini
+ExecStart=/home/rp-chiller/.local/bin/uv run logger.py -c /home/rp-chiller/Coding/logger2-config/chiller/config.ini
 ```
 
 After creating a new configuration file or editing it, the configurations need to be re-loaded with
