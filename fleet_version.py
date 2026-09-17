@@ -25,7 +25,8 @@ refuses a repository owned by another account ("dubious ownership")
 unless ``safe.directory`` names it, so every call names it on the
 command line; when git cannot run at all, the hash is read from the
 .git directory itself, without the dirty check. And a running pydase
-server rewrites its tracked state.json, which would mark the checkout
+server rewrites its tracked state file (state.json, or state_<instance>.json
+for an app with several instances), which would mark the checkout
 dirty forever, so those files are excluded from the check.
 
 This module is identical in unitrap-pydase-apps and logger2 (diff
@@ -51,7 +52,7 @@ FIELD_COMMIT = 'software_commit'
 GIT_TIMEOUT_S = 5.0
 #: Tracked files a running process rewrites; they never make a
 #: checkout dirty
-DIRTY_EXCLUDE_PATHSPECS = (':(exclude,glob)**/state.json',)
+DIRTY_EXCLUDE_PATHSPECS = (':(exclude,glob)**/state*.json',)
 #: Distributions whose installed versions are published beside the
 #: process's own, as '<distribution>_version'
 DEPENDENCIES = ('pydase', 'amodevices')
