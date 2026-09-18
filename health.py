@@ -266,7 +266,7 @@ class ProcessHealth:
         the period achieved since the previous start (None on the
         first).
 
-        Published as `interval_s` and `cycle_s`, the mean period
+        Published as `period_set_s` and `period_actual_s`, the mean period
         achieved since the last point - so a logger set to 1 s whose
         reads take 1.4 s, and which therefore skips every other slot,
         reads interval 1 s, cycle 2 s, which the overrun fields alone do
@@ -293,7 +293,7 @@ class ProcessHealth:
             pass
 
     def _cycle_fields(self, now):
-        """`interval_s`/`cycle_s`, resetting the window (under the
+        """`period_set_s`/`period_actual_s`, resetting the window (under the
         lock)."""
         cycle = self._cycle
         if cycle is None:
@@ -304,8 +304,8 @@ class ProcessHealth:
         else:
             mean = max(cycle['last_mean'] or 0., now - cycle['last_at'])
         cycle['sum'], cycle['n'] = 0., 0
-        return {'interval_s': float(cycle['interval_s']),
-                'cycle_s': float(mean)}
+        return {'period_set_s': float(cycle['interval_s']),
+                'period_actual_s': float(mean)}
 
     def note_cycle_overrun_ms(self, overrun_ms):
         """Record one cycle that ran past its interval, from the poll

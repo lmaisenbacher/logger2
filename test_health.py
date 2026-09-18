@@ -424,14 +424,14 @@ def test_cycle_fields_are_the_set_interval_and_the_mean_period(process_health):
     process_health.note_cycle(1.0, 2.0)
     process_health.note_cycle(1.0, 2.0)
     fields = process_health._build_point()['fields']
-    assert fields['interval_s'] == 1.0 and fields['cycle_s'] == 2.0
+    assert fields['period_set_s'] == 1.0 and fields['period_actual_s'] == 2.0
     process_health.note_cycle(1.0, 1.0)
-    assert process_health._build_point()['fields']['cycle_s'] == 1.0
+    assert process_health._build_point()['fields']['period_actual_s'] == 1.0
 
 
 def test_no_cycle_fields_before_the_first_cycle(process_health):
     fields = process_health._build_point()['fields']
-    assert 'interval_s' not in fields and 'cycle_s' not in fields
+    assert 'period_set_s' not in fields and 'period_actual_s' not in fields
 
 
 def test_a_loop_that_did_not_start_a_cycle_reads_its_last_mean_or_its_age(
@@ -440,11 +440,11 @@ def test_a_loop_that_did_not_start_a_cycle_reads_its_last_mean_or_its_age(
     monkeypatch.setattr(health.time, 'monotonic', lambda: clock[0])
     process_health.note_cycle(30.0, None)
     process_health.note_cycle(30.0, 30.0)
-    assert process_health._build_point()['fields']['cycle_s'] == 30.0
+    assert process_health._build_point()['fields']['period_actual_s'] == 30.0
     clock[0] += 10.                                # slower than the health interval
-    assert process_health._build_point()['fields']['cycle_s'] == 30.0
+    assert process_health._build_point()['fields']['period_actual_s'] == 30.0
     clock[0] += 80.                                # wedged: 90 s since the start
-    assert process_health._build_point()['fields']['cycle_s'] == 90.0
+    assert process_health._build_point()['fields']['period_actual_s'] == 90.0
 
 
 def test_overrun_is_the_max_then_resets(process_health):
