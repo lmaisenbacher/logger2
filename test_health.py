@@ -417,6 +417,36 @@ def test_non_finite_float_is_dropped_not_written(process_health):
     assert math.isfinite(fields['uptime_s'])
 
 
+def test_cycle_fields_are_the_set_interval_and_the_mean_period(process_health):
+    """A logger set to 1 s that skips every other slot reads interval
+    1, cycle 2; the window resets per point."""
+    process_health.note_cycle(1.0, None)          # the first start: no period
+    process_health.note_cycle(1.0, 2.0)
+    process_health.note_cycle(1.0, 2.0)
+    fields = process_health._build_point()['fields']
+    assert fields['interval_s'] == 1.0 and fields['cycle_s'] == 2.0
+    process_health.note_cycle(1.0, 1.0)
+    assert process_health._build_point()['fields']['cycle_s'] == 1.0
+
+
+def test_no_cycle_fields_before_the_first_cycle(process_health):
+    fields = process_health._build_point()['fields']
+    assert 'interval_s' not in fields and 'cycle_s' not in fields
+
+
+def test_a_loop_that_did_not_start_a_cycle_reads_its_last_mean_or_its_age(
+        process_health, monkeypatch):
+    clock = [1000.]
+    monkeypatch.setattr(health.time, 'monotonic', lambda: clock[0])
+    process_health.note_cycle(30.0, None)
+    process_health.note_cycle(30.0, 30.0)
+    assert process_health._build_point()['fields']['cycle_s'] == 30.0
+    clock[0] += 10.                                # slower than the health interval
+    assert process_health._build_point()['fields']['cycle_s'] == 30.0
+    clock[0] += 80.                                # wedged: 90 s since the start
+    assert process_health._build_point()['fields']['cycle_s'] == 90.0
+
+
 def test_overrun_is_the_max_then_resets(process_health):
     for overrun in (12., 840., 3.):
         process_health.note_cycle_overrun_ms(overrun)

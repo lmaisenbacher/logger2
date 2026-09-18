@@ -220,6 +220,10 @@ class ProcessHealth:
         self._db_writers = []
         self._overrun_max_ms = 0.
         self._overruns = 0
+        # The polling loop's set interval, the periods it achieved
+        # since the last point, when it last started a cycle and the
+        # last mean published (see `note_cycle`)
+        self._cycle = None
         self._software = {}
         self._pending_event = None
         self._enabled = True
@@ -257,6 +261,52 @@ class ProcessHealth:
 
     # -- collection ----------------------------------------------------
 
+    def note_cycle(self, interval_s, period_s):
+        """Record the start of one polling cycle: the set interval and
+        the period achieved since the previous start (None on the
+        first).
+
+        Published as `interval_s` and `cycle_s`, the mean period
+        achieved since the last point - so a logger set to 1 s whose
+        reads take 1.4 s, and which therefore skips every other slot,
+        reads interval 1 s, cycle 2 s, which the overrun fields alone do
+        not say. Without a cycle start since the last point (an
+        interval longer than the health interval, or a wedged loop) the
+        larger of the last mean and the time since the last start is
+        published, so a slow loop keeps its true period and a wedged
+        one's cycle grows point by point. The pydase servers write the
+        same two fields for their fastest paced loop.
+        """
+        try:
+            now = time.monotonic()
+            with self._lock:
+                if self._cycle is None:
+                    self._cycle = {'interval_s': interval_s, 'sum': 0.,
+                                   'n': 0, 'last_at': now, 'last_mean': None}
+                cycle = self._cycle
+                cycle['interval_s'] = interval_s
+                cycle['last_at'] = now
+                if period_s is not None:
+                    cycle['sum'] += period_s
+                    cycle['n'] += 1
+        except Exception:
+            pass
+
+    def _cycle_fields(self, now):
+        """`interval_s`/`cycle_s`, resetting the window (under the
+        lock)."""
+        cycle = self._cycle
+        if cycle is None:
+            return {}
+        if cycle['n']:
+            mean = cycle['sum'] / cycle['n']
+            cycle['last_mean'] = mean
+        else:
+            mean = max(cycle['last_mean'] or 0., now - cycle['last_at'])
+        cycle['sum'], cycle['n'] = 0., 0
+        return {'interval_s': float(cycle['interval_s']),
+                'cycle_s': float(mean)}
+
     def note_cycle_overrun_ms(self, overrun_ms):
         """Record one cycle that ran past its interval, from the poll
         loop.
@@ -283,6 +333,7 @@ class ProcessHealth:
                 'uptime_s': float(now - self._t0),
                 'cycle_overrun_ms': float(self._overrun_max_ms),
                 'cycle_overruns_total': int(self._overruns),
+                **self._cycle_fields(now),
                 }
             self._overrun_max_ms = 0.
             if self._counter is not None:

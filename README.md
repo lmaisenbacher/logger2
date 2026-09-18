@@ -115,6 +115,8 @@ Measurement `serverhealth`, deliberately not the logger's own measurements - a l
 | `uptime_s` | float | Seconds since the logger started |
 | `cycle_overrun_ms` | float | Worst amount a cycle's work ran past its interval since the last point |
 | `cycle_overruns_total` | int | Cycles that ran past their interval, cumulative |
+| `interval_s` | float | The SET polling interval (`[Update] interval`) |
+| `cycle_s` | float | The period the polling loop achieved, mean over the interval before the point (a loop whose reads outlast the interval skips slots and reads a multiple of it); without a cycle start in it, the larger of the last mean and the time since the last start, so a wedged loop's cycle grows |
 | `n_warnings` | int | WARNING records logged, cumulative |
 | `n_errors` | int | ERROR records logged, cumulative |
 | `n_written` | int | Records the buffered writer delivered, cumulative |

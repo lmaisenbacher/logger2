@@ -528,9 +528,17 @@ if __name__ == "__main__":
 
     next_cycle = time.monotonic()
     last_overrun_warning = float("-inf")
+    # When the previous cycle started: the spacing of cycle starts is
+    # the sampling period actually achieved (health `cycle_s`)
+    cycle_started = None
     while True:
 
         try:
+            now = time.monotonic()
+            health.PROCESS_HEALTH.note_cycle(
+                UPDATE_INTERVAL,
+                None if cycle_started is None else now - cycle_started)
+            cycle_started = now
 
             points = []
             # Per-device wall time of this cycle — names the culprit
