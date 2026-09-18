@@ -10,10 +10,13 @@ Version policy - manual SemVer, one number per process:
 
 Bump in the same commit as the change it describes. A pydase server's
 number is the ``__version__`` of its server.py; logger2's is the
-``[project]`` version of its pyproject.toml. The git commit of the
-checkout, with a "+dirty" marker when tracked files are modified, is
-recorded beside it: version numbers are for humans, the commit is for
-forensics.
+``[project]`` version of its pyproject.toml. The pydase servers also
+publish the version of the shared layer they run on
+(``unitrap_services.__version__``, bumped by the same rules when that
+code changes), so a change underneath every app needs no bump of the
+apps. The git commit of the checkout, with a "+dirty" marker when
+tracked files are modified, is recorded beside them and identifies
+both: version numbers are for humans, the commit is for forensics.
 
 Everything is captured ONCE at startup (`capture_versions`): a
 ``git pull`` under a running process changes the checkout, not the
@@ -45,9 +48,11 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 #: Field names on the health point (the ion-detection Run event uses
-#: the same two for the GUI's own software)
+#: the first two for the GUI's own software)
 FIELD_VERSION = 'software_version'
 FIELD_COMMIT = 'software_commit'
+#: The shared layer's version, pydase servers only
+FIELD_SERVICES = 'services_version'
 #: Bound on one git call (s); a startup waits for at most two
 GIT_TIMEOUT_S = 5.0
 #: Tracked files a running process rewrites; they never make a
@@ -221,25 +226,30 @@ def version_from_pyproject(repo_root):
         return None
 
 
-def capture_versions(app_version, repo_root, dependencies=DEPENDENCIES):
+def capture_versions(app_version, repo_root, dependencies=DEPENDENCIES,
+                     services_version=None):
     """Everything published about the running software, as string
     fields.
 
     `FIELD_VERSION` is `app_version` as given (from
     `main_module_version` or `version_from_pyproject`, which warn when
-    they find none), `FIELD_COMMIT` comes from `capture_commit`, and
-    '<distribution>_version' is added for each of `dependencies` that
-    is installed. An unknown value is ABSENT, never an empty string,
-    and costs one WARNING. Never raises.
+    they find none), `FIELD_SERVICES` is `services_version` when given
+    (the pydase servers' shared layer), `FIELD_COMMIT` comes from
+    `capture_commit`, and '<distribution>_version' is added for each of
+    `dependencies` that is installed. An unknown value is ABSENT, never
+    an empty string, and costs one WARNING. Never raises.
     """
     fields = {}
-    if app_version is not None:
-        version = str(app_version).strip()
+    for key, given in ((FIELD_VERSION, app_version),
+                       (FIELD_SERVICES, services_version)):
+        if given is None:
+            continue
+        version = str(given).strip()
         if not VERSION_RE.match(version):
             logger.warning(
                 'The version \'%s\' is not of the form MAJOR.MINOR.PATCH;'
                 ' published as given', version)
-        fields[FIELD_VERSION] = version
+        fields[key] = version
     commit = capture_commit(repo_root)
     if commit is not None:
         fields[FIELD_COMMIT] = commit
@@ -255,8 +265,13 @@ def capture_versions(app_version, repo_root, dependencies=DEPENDENCIES):
 
 
 def version_string(fields):
-    """E.g. "1.2.0 (abc1234+dirty)"; "unknown" without a version."""
+    """E.g. "1.2.0, services 1.0.0 (abc1234+dirty)": the process's own
+    version, the shared layer's when there is one, then the commit
+    both come from; "unknown" without a version."""
     version = fields.get(FIELD_VERSION) or 'unknown'
+    services = fields.get(FIELD_SERVICES)
+    if services:
+        version += f', services {services}'
     commit = fields.get(FIELD_COMMIT)
     return version + (f' ({commit})' if commit else '')
 

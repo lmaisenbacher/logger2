@@ -98,7 +98,7 @@ def test_dirty_check_excludes_state_json(checkout, fake_git):
     cmd, _ = fake.calls[1]
     assert 'status' in cmd and '--porcelain' in cmd
     assert cmd[-4:] == ['--untracked-files=no', '--', '.',
-                        ':(exclude,glob)**/state.json']
+                        ':(exclude,glob)**/state*.json']
 
 
 def test_clean_checkout_is_the_bare_hash(checkout, fake_git):
@@ -297,6 +297,20 @@ def test_an_odd_version_is_published_with_a_warning(
     assert 'MAJOR.MINOR.PATCH' in caplog.text
 
 
+def test_services_version_is_its_own_field(checkout, fake_git, caplog):
+    """The pydase servers' shared layer, checked like the app's own."""
+    fake_git()
+    fields = fv.capture_versions('1.2.0', checkout, dependencies=(),
+                                 services_version='1.0.0')
+    assert fields[fv.FIELD_SERVICES] == '1.0.0'
+    fields = fv.capture_versions('1.2.0', checkout, dependencies=())
+    assert fv.FIELD_SERVICES not in fields
+    with caplog.at_level(logging.WARNING):
+        fv.capture_versions('1.2.0', checkout, dependencies=(),
+                            services_version='v1')
+    assert 'MAJOR.MINOR.PATCH' in caplog.text
+
+
 def test_a_non_string_version_is_stringified(checkout, fake_git):
     fake_git()
     fields = fv.capture_versions(1.0, checkout, dependencies=())
@@ -310,6 +324,11 @@ def test_a_non_string_version_is_stringified(checkout, fake_git):
 @pytest.mark.parametrize('fields, expected', [
     ({fv.FIELD_VERSION: '1.2.0', fv.FIELD_COMMIT: 'abc1234+dirty'},
      '1.2.0 (abc1234+dirty)'),
+    ({fv.FIELD_VERSION: '1.2.0', fv.FIELD_SERVICES: '1.0.0',
+      fv.FIELD_COMMIT: 'abc1234'},
+     '1.2.0, services 1.0.0 (abc1234)'),
+    ({fv.FIELD_VERSION: '1.2.0', fv.FIELD_SERVICES: '1.0.0'},
+     '1.2.0, services 1.0.0'),
     ({fv.FIELD_VERSION: '1.2.0'}, '1.2.0'),
     ({fv.FIELD_COMMIT: 'abc1234'}, 'unknown (abc1234)'),
     ({}, 'unknown'),

@@ -333,7 +333,10 @@ if __name__ == "__main__":
     # e.g. for a Grafana panel that catches an unsynced PC and for
     # re-shifting its data offline. Written even when a device read
     # fails: a heartbeat means "logger running and database reachable",
-    # independent of data.
+    # independent of data. Tagged with this process's name too — the
+    # one point that names both the device and the process, through
+    # which the Housekeeping dashboard joins a device's data to the
+    # process writing it.
     heartbeats = {}
     # (device, channel) pairs already warned about a missing status
     status_warned = set()
@@ -353,14 +356,17 @@ if __name__ == "__main__":
         if time.monotonic() - hb.last < hb.interval_s:
             return
         hb.last = time.monotonic()
+        tags = {
+            'device': device['Device'],
+            **device['tags'],
+            'sensor': 'Clock sync',
+        }
+        if health.PROCESS_HEALTH.process:
+            tags['process'] = health.PROCESS_HEALTH.process
         json_body = [{
             'measurement': device['measurement'],
             'fields': {'client_time_ns': time.time_ns()},
-            'tags': {
-                'device': device['Device'],
-                **device['tags'],
-                'sensor': 'Clock sync',
-            },
+            'tags': tags,
         }]
         try:
             write_api.write(DB_BUCKET, DB_ORG, json_body)
