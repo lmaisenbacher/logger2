@@ -394,12 +394,46 @@
         {
             "Frequency":
             {
-				"Type":"Frequency",
-                "field-key":"frequency",
-                "tags":
-                {
-                    "unit":"THz"
-                }
+                "Type": "Frequency",
+                "field-key": "frequency",
+                "tags": {"unit": "THz"}
+            },
+            "Amplitude max 1":
+            {
+                "Type": "AmplitudeMax1",
+                "field-key": "amplitude_max1",
+                "status-field-key": null,
+                "tags": {"unit": "counts"}
+            },
+            "Amplitude avg 1":
+            {
+                "Type": "AmplitudeAvg1",
+                "field-key": "amplitude_avg1",
+                "status-field-key": null,
+                "tags": {"unit": "counts"}
+            },
+            "Power":
+            {
+                "Type": "Power",
+                "field-key": "power",
+                "status-field-key": null,
+                "tags": {"unit": "uW"}
+            },
+            "Optical unit temperature":
+            {
+                "Type": "Temperature",
+                "field-key": "temperature",
+                "status-field-key": null,
+                "DeviceSpecificParams": {"MinInterval_s": 60},
+                "tags": {"sensor": "Optical unit", "unit": "C"}
+            },
+            "Optical unit pressure":
+            {
+                "Type": "Pressure",
+                "field-key": "pressure",
+                "status-field-key": null,
+                "DeviceSpecificParams": {"MinInterval_s": 60},
+                "tags": {"sensor": "Optical unit", "unit": "mbar"}
             }
         }
     },
