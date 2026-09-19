@@ -72,7 +72,9 @@ nothing new, which the logger drops — while a channel that switched the
 status off is present only on polls where it has something. The logger
 counts and thins its per-channel INFO lines per reading it is handed;
 eight channels at 50 Hz would otherwise fill the log with "not written"
-lines.
+lines. A diagnostics read that RAISES (a DLL entry point misbehaving) is
+logged once with its traceback and skipped for that poll — the frequency
+row is written regardless (`_diagnostic`).
 """
 
 import logging
@@ -150,6 +152,8 @@ class Device(HighFinesseWS):
         self._env_last_read = {}
         # Transition-log state per quantity label (`_log_transition`)
         self._transitions = {}
+        # Diagnostics reads that raised (logged once each, `_diagnostic`)
+        self._diagnostic_failures = set()
         # Raw code of the last frequency result (0 for a valid one)
         self._last_raw_code = 0
 
@@ -244,6 +248,23 @@ class Device(HighFinesseWS):
         state['log_t'] = now
         state['suppressed'] = 0
 
+    def _diagnostic(self, label, method, *args):
+        """Run the diagnostics read `method(*args)` (an amplitude, the
+        power, the environment) so that a failure in it never costs the
+        poll's frequency: an exception is logged with its traceback the
+        first time per `label` and the read returns None (the channel is
+        simply absent this poll; the read is retried next poll)."""
+        try:
+            return method(*args)
+        except Exception:
+            if label not in self._diagnostic_failures:
+                self._diagnostic_failures.add(label)
+                logger.exception(
+                    '\'%s\': the %s read failed — the frequency is logged,'
+                    ' this quantity is not (reported once)',
+                    self.device['Device'], label)
+            return None
+
     def _amplitude(self, ctype):
         """One amplitude of this poll's result (counts, NaN for a DLL
         error code) and the raw return."""
@@ -301,20 +322,22 @@ class Device(HighFinesseWS):
                 value = freq*1e3 if chan.get('Unit', 'THz') == 'GHz' else freq
                 readings[channel_id] = with_status(chan, value, status)
             elif ctype in self.AMPLITUDE_TYPES:
-                if new:
-                    value, raw = self._amplitude(ctype)
+                read = self._diagnostic('amplitude', self._amplitude, ctype) if new else None
+                if read is not None:
+                    value, raw = read
                     amplitude_codes.append(raw)
                     readings[channel_id] = with_status(chan, value, status)
                 elif status_field_key(chan) is not None:
                     readings[channel_id] = with_status(chan, np.nan, None)
             elif ctype == 'Power':
-                if new:
-                    value, pstatus = self._power()
+                read = self._diagnostic('energy', self._power) if new else None
+                if read is not None:
+                    value, pstatus = read
                     readings[channel_id] = with_status(chan, value, pstatus)
                 elif status_field_key(chan) is not None:
                     readings[channel_id] = with_status(chan, np.nan, None)
             else:
-                value = self._environment(channel_id, chan)
+                value = self._diagnostic(ctype.lower(), self._environment, channel_id, chan)
                 if value is not None:
                     readings[channel_id] = value
         if amplitude_codes:

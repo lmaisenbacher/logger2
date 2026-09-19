@@ -443,6 +443,28 @@ def test_line_protocol_of_the_diagnostics():
     assert 'temperature=23.4' in line('Temperature', 23.4)
 
 
+def test_diagnostics_failure_never_costs_the_frequency(monkeypatch, caplog):
+    # A DLL entry point that raises (here GetPowerNum) loses only its
+    # own quantity: the frequency row and the other diagnostics are
+    # written, the failure is logged once with its traceback
+    device, dll = make_all(monkeypatch, [387.0, 387.0, -4.0])
+
+    def boom(*args):
+        raise OSError('access violation')
+    dll.GetPowerNum = _Entry(boom)
+    with caplog.at_level(logging.INFO, logger='dev_highfinesse'):
+        for expected in ({'frequency': pytest.approx(387000.0), 'status': 'ok'},
+                         {'frequency': pytest.approx(387000.0), 'status': 'ok'},
+                         {'status': 'overexposed'}):
+            written = _written(device.get_values())
+            assert written['Frequency'] == expected
+            assert written['Amplitude max 1'] == {'amplitude_max1': 2500.0}
+            assert 'Pulse energy' not in written
+    failures = [r for r in caplog.records if 'energy read failed' in r.getMessage()]
+    assert len(failures) == 1 and failures[0].exc_info is not None
+    assert 'access violation' in failures[0].exc_text
+
+
 def test_get_levels_compat(monkeypatch):
     device, _ = make_all(monkeypatch, [])
     assert device.get_levels() == (2500, 2400)
