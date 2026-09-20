@@ -40,11 +40,39 @@ lockbox's lock status DO pins are the fast signal). The lock status
 needs the rp-lockbox SCPI server with the `PID:IN#:OUT#:LOCKED?` query
 (newer than release 1.2.0).
 
+The lockbox monitor service of rp-lockbox 1.3.0 (`lockbox-monitor`, which
+samples the lock flags at 1 kHz on the box) adds the channel types:
+
+- `LockDrops` (per PID): the lock drops since the previous poll under the
+  channel's own field ('field-key', e.g. 'unlocks' — 0 on most polls, the
+  difference of the monitor's monotonic total; a total that DECREASED
+  means the monitor restarted, and the new total is taken as that poll's
+  drops), with the companions `unlocks_total` (the monitor's total since
+  it started), `unlocked_s` (time spent in drops since the previous poll,
+  the difference of the monitor's total), `longest_unlock_s` (the longest
+  drop that ended since the previous poll, from the monitor's event ring;
+  0 when none) and `servo_drops` (the drops since the hold was last
+  switched off — the web interface's "drops since servo on").
+- `FastAnalogInRMS` (per fast analog channel): the standard deviation of
+  the input over the monitor's last window (V; the input noise, in lock
+  the rms error) under the channel's own field, with the companions
+  `decimation` (the scope decimation the samples were averaged over,
+  which sets the bandwidth) and `window_s` (the window length).
+- `FastAnalogInMean` (per fast analog channel): the mean of the input
+  over that window (V), a plain value.
+
+While the monitor service is not running these channels write nothing
+(reading None; one warning per outage); the other channels are not
+affected. The monitor's health (`LOCK:MON?`) is asked once per poll and
+gates the rest, because the SCPI server answers a monitor query with an
+error while the service is down, which the client only sees as a
+receive timeout.
+
 Booleans are logged as 0/1 integers (InfluxDB would type a Python bool
 as a boolean field). Within one poll every SCPI query is sent once: the
 readers share a per-poll memo, so the relock input read for a lock
 event's reason is not repeated for a `RelockInput` channel of the same
-PID.
+PID, and one `MONitor?` per PID serves all its lock-drop fields.
 """
 
 import logging
@@ -60,6 +88,17 @@ LOCK_EVENT_CODE_FIELD_KEY = 'lock_event_code'
 #: `lock_event_code` per lock state (the pointing PID server's codes:
 #: 1 = servoing, -1 = off)
 LOCK_EVENT_CODES = {True: 1, False: -1}
+
+#: Companion fields of a `LockDrops` channel
+UNLOCKS_TOTAL_FIELD_KEY = 'unlocks_total'
+UNLOCKED_TIME_FIELD_KEY = 'unlocked_s'
+LONGEST_UNLOCK_FIELD_KEY = 'longest_unlock_s'
+SERVO_DROPS_FIELD_KEY = 'servo_drops'
+#: Companion fields of a `FastAnalogInRMS` channel
+DECIMATION_FIELD_KEY = 'decimation'
+WINDOW_FIELD_KEY = 'window_s'
+#: The channel types served by the lockbox monitor service
+MONITOR_TYPES = ('LockDrops', 'FastAnalogInRMS', 'FastAnalogInMean')
 
 
 class Device(RPLockbox):
@@ -88,7 +127,7 @@ class Device(RPLockbox):
         'RelockStepsize': ('pid', 'get_relock_stepsize', float),
     }
     #: Every channel type, for the configuration check
-    CHANNEL_TYPES = tuple(SIMPLE_READERS) + ('RelockInput', 'LockStatus')
+    CHANNEL_TYPES = tuple(SIMPLE_READERS) + ('RelockInput', 'LockStatus') + MONITOR_TYPES
 
     def __init__(self, device):
         for channel_id, chan in device['Channels'].items():
@@ -101,6 +140,11 @@ class Device(RPLockbox):
         # Lock state per `LockStatus` channel at the previous poll (absent
         # = no poll yet)
         self._last_locked = {}
+        # Per `LockDrops` channel: the monitor's totals and the newest
+        # event index at the previous poll (absent = no poll yet)
+        self._last_drops = {}
+        # The monitor's state at the previous poll, for the outage warning
+        self._monitor_was_alive = None
         # Per-poll memo of driver query results (see the module docstring)
         self._memo = {}
 
@@ -182,10 +226,94 @@ class Device(RPLockbox):
         reading[LOCK_EVENT_CODE_FIELD_KEY] = LOCK_EVENT_CODES[locked]
         return reading
 
+    def _monitor_alive(self):
+        """Whether the lockbox monitor service runs (asked once per poll; the
+        one monitor query that answers while it is down). Logs the outage
+        and the recovery once each."""
+        alive = bool(self._query('get_monitor_health')['alive'])
+        if alive != self._monitor_was_alive:
+            if alive:
+                if self._monitor_was_alive is False:
+                    logger.info('\'%s\': the lockbox monitor service is running again',
+                                self.device['Device'])
+            else:
+                logger.warning(
+                    '\'%s\': the lockbox monitor service is not running - its channels'
+                    ' (%s) write nothing until it is', self.device['Device'],
+                    ', '.join(MONITOR_TYPES))
+            self._monitor_was_alive = alive
+        return alive
+
+    def _read_lock_drops(self, channel_id, chan):
+        """The drops since the previous poll under the channel's own field,
+        with the monitor's totals and the longest drop that ended since
+        (see the module docstring)."""
+        num_in, num_out = self.get_pid_channels(channel_id, chan)
+        monitor = self._query('get_pid_monitor', num_in, num_out)
+        total = int(monitor['unlocks_total'])
+        unlocked_s = float(monitor['unlocked_total_s'])
+        last = self._last_drops.get(channel_id)
+        restarted = last is not None and total < last['total']
+        if last is None:
+            # No baseline yet: nothing dropped "since the previous poll"
+            drops, unlocked_delta, after = 0, 0.0, 0
+        elif restarted:
+            # The monitor restarted: its totals began anew
+            logger.info('\'%s\': %s: the lockbox monitor restarted (total %d after %d)',
+                        self.device['Device'], channel_id, total, last['total'])
+            drops, unlocked_delta, after = total, unlocked_s, 0
+        else:
+            drops = total - last['total']
+            unlocked_delta = max(unlocked_s - last['unlocked_s'], 0.0)
+            after = last['index']
+        # The drops that ENDED since the previous poll come from the
+        # monitor's ring (a drop counts at its start and lands in the ring
+        # at its close, so a drop open at the previous poll is looked up
+        # too); the cursor is the newest index seen
+        longest, index = 0.0, after
+        if last is None or restarted or drops > 0 or last['open']:
+            events = self._query('get_unlock_events', num_in, num_out, after)
+            if last is not None:
+                longest = max((event['duration_s'] for event in events), default=0.0)
+            index = max((event['index'] for event in events), default=after)
+        self._last_drops[channel_id] = {
+            'total': total, 'unlocked_s': unlocked_s, 'index': index,
+            'open': bool(monitor['drop_open'])}
+        return {
+            chan['field-key']: drops,
+            UNLOCKS_TOTAL_FIELD_KEY: total,
+            UNLOCKED_TIME_FIELD_KEY: unlocked_delta,
+            LONGEST_UNLOCK_FIELD_KEY: longest,
+            SERVO_DROPS_FIELD_KEY: int(monitor['unlocks_since_servo']),
+        }
+
+    def _read_input_rms(self, channel_id, chan):
+        """The input's standard deviation over the monitor's last window,
+        with the decimation and the window length as companions."""
+        stats = self._query('get_fast_analog_input_stats',
+                            self.get_device_channel(channel_id, chan))
+        if stats['age_s'] < 0:
+            # No window yet (the monitor just started)
+            return None
+        return {
+            chan['field-key']: float(stats['sd_v']),
+            DECIMATION_FIELD_KEY: int(stats['decimation']),
+            WINDOW_FIELD_KEY: float(stats['window_s']),
+        }
+
+    def _read_input_mean(self, channel_id, chan):
+        """The input's mean over the monitor's last window."""
+        stats = self._query('get_fast_analog_input_stats',
+                            self.get_device_channel(channel_id, chan))
+        if stats['age_s'] < 0:
+            return None
+        return float(stats['mean_v'])
+
     def get_values(self):
         """Read every channel once (one poll)."""
         self._memo.clear()
         readings = {}
+        monitor_alive = None
         for channel_id, chan in self.device['Channels'].items():
             ctype = chan['Type']
             if ctype in self.SIMPLE_READERS:
@@ -198,6 +326,17 @@ class Device(RPLockbox):
                 readings[channel_id] = self._read_relock_input(channel_id, chan)
             elif ctype == 'LockStatus':
                 readings[channel_id] = self._read_lock_status(channel_id, chan)
+            elif ctype in MONITOR_TYPES:
+                if monitor_alive is None:
+                    monitor_alive = self._monitor_alive()
+                if not monitor_alive:
+                    readings[channel_id] = None
+                elif ctype == 'LockDrops':
+                    readings[channel_id] = self._read_lock_drops(channel_id, chan)
+                elif ctype == 'FastAnalogInRMS':
+                    readings[channel_id] = self._read_input_rms(channel_id, chan)
+                else:
+                    readings[channel_id] = self._read_input_mean(channel_id, chan)
             else:
                 raise DeviceError(
                     f'Unknown channel type \'{ctype}\' for channel \'{channel_id}\''
