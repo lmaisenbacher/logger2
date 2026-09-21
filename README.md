@@ -117,6 +117,11 @@ Measurement `serverhealth`, deliberately not the logger's own measurements - a l
 | `cycle_overruns_total` | int | Cycles that ran past their interval, cumulative |
 | `period_set_s` | float | The SET polling interval (`[Update] interval`) |
 | `period_actual_s` | float | The period the polling loop achieved, mean over the interval before the point (a loop whose reads outlast the interval skips slots and reads a multiple of it); without a cycle start in it, the larger of the last mean and the time since the last start, so a wedged loop's cycle grows |
+| `gc_pause_ms` | float | Longest garbage-collection pause since the last point (every thread stops for it) |
+| `gc_gen2` | int | Generation-2 collections (whole-heap passes, the long ones) since the last point |
+| `gil_lag_ms` | float | Worst overshoot of the health thread's own 10 ms sleeps since the last point: how late any thread of the process runs again, the OS scheduler plus the wait for the interpreter lock |
+| `cpu_percent` | float | CPU time the process used over the interval, all threads, in percent of one core |
+| `n_threads` | int | Live threads |
 | `n_warnings` | int | WARNING records logged, cumulative |
 | `n_errors` | int | ERROR records logged, cumulative |
 | `n_written` | int | Records the buffered writer delivered, cumulative |

@@ -11,7 +11,7 @@
 # as the change it describes.
 [project]
 name = "logger2"
-version = "1.3.0"
+version = "1.4.0"
 description = "Multi-purpose data logging software for the Unitrap experiment"
 readme = "README.md"
 requires-python = ">=3.11"

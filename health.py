@@ -20,6 +20,7 @@ point carries uptime, cycle overruns and the log's own error counts.
 """
 import atexit
 import configparser
+import gc
 import logging
 import logging.handlers
 import math
@@ -86,6 +87,9 @@ SERVER_HEALTH_INTERVAL_S = 10.0
 # Consecutive rejected writes (4xx below 429, which retrying cannot
 # fix) after which this process stops emitting health points
 SERVER_HEALTH_REJECT_LIMIT = 3
+# The health emitter's sleep between its wake-ups (s): between points
+# it is the thread-scheduling sentinel (see `ProcessHealth`)
+HEALTH_SENTINEL_SLEEP_S = 0.01
 # The event the first health point after a start carries, in the fleet's
 # event convention: a comma-free `event` text stating what happened,
 # repeating no identifier the point carries as a tag or another field
@@ -208,6 +212,20 @@ class ProcessHealth:
     runs as string fields (`set_software`: version, commit, dependency
     versions), and the first point written after a start carries the
     `started` event, so a restart is one annotation in Grafana.
+
+    Three fields look INSIDE the process, the same ones the pydase
+    servers write (their `unitrap_services.ProcessHealth`), so a slow
+    cycle can be told apart by cause: `gc_pause_ms`, the longest
+    garbage-collection pause since the last point (`gc.callbacks`; a
+    collection stops every thread) with `gc_gen2`, the number of
+    generation-2 passes; `gil_lag_ms`, the worst overshoot of the
+    emitter thread's own 10 ms sleeps between points - the delay any
+    thread of this process suffers before it runs again, the OS
+    scheduler plus the wait for the interpreter lock; and
+    `cpu_percent`, the process's CPU time over the interval (user plus
+    system, all threads, in percent of one core), with `n_threads`.
+    The gc meter keeps its own lock (see `__init__`): the collector's
+    callback may run inside a `_lock` region.
     """
 
     def __init__(self, interval_s=SERVER_HEALTH_INTERVAL_S):
@@ -220,6 +238,27 @@ class ProcessHealth:
         self._db_writers = []
         self._overrun_max_ms = 0.
         self._overruns = 0
+        # The in-process meters: gc pauses by generation in flight, the
+        # worst pause and the gen-2 count since the last point, the
+        # sentinel's worst overshoot, and the CPU-time snapshot the
+        # last point was built from (at construction: the first point
+        # then averages over the object's life, not the process's
+        # imports over a fraction of a second).
+        # The gc scalars sit under their OWN lock, never `_lock`: the
+        # collector's callback runs in whichever thread allocated past
+        # the threshold, which can be a thread INSIDE a `_lock` region
+        # (`_build_point` allocates its dicts under it), and a plain
+        # lock taken again by its holder blocks forever. The regions
+        # of `_gc_lock` allocate nothing and call no Python function,
+        # so no collection can start inside them.
+        self._gc_lock = threading.Lock()
+        self._gc_starts = {}
+        self._gc_max_s = 0.
+        self._gc_gen2 = 0
+        self._gc_installed = False
+        self._gil_max_s = 0.
+        t = os.times()
+        self._cpu_last = (float(t.user + t.system), self._t0)
         # The polling loop's set interval, the periods it achieved
         # since the last point, when it last started a cycle and the
         # last mean published (see `note_cycle`)
@@ -326,16 +365,99 @@ class ProcessHealth:
         except Exception:
             pass
 
+    def _gc_callback(self, phase, info):
+        """`gc.callbacks` hook: runs in whichever thread triggered the
+        collection - possibly one holding `_lock` - so it touches only
+        the gc scalars under `_gc_lock` and never logs. `_gc_starts` is
+        mutated without a lock: collections are serialized process-wide
+        by the collector itself, so one generation's start and stop
+        never interleave across threads."""
+        try:
+            gen = int(info.get('generation', 0))
+            if phase == 'start':
+                self._gc_starts[gen] = time.perf_counter()
+                return
+            t0 = self._gc_starts.pop(gen, None)
+            if t0 is None:
+                return
+            pause = time.perf_counter() - t0
+            with self._gc_lock:
+                if pause > self._gc_max_s:
+                    self._gc_max_s = pause
+                if gen >= 2:
+                    self._gc_gen2 += 1
+        except Exception:
+            pass
+
+    def _install_gc_hook(self):
+        with self._lock:
+            if self._gc_installed:
+                return
+            self._gc_installed = True
+        gc.callbacks.append(self._gc_callback)
+
+    def _remove_gc_hook(self):
+        with self._lock:
+            if not self._gc_installed:
+                return
+            self._gc_installed = False
+        try:
+            gc.callbacks.remove(self._gc_callback)
+        except ValueError:
+            pass
+
+    def _take_gc(self):
+        """The worst pause (s) and the gen-2 count since the last call,
+        then reset. Two scalar reads and two constant stores under the
+        gc lock - no container is built inside it (a tuple allocation
+        could schedule a collection whose callback wants this lock)."""
+        with self._gc_lock:
+            gc_max_s = self._gc_max_s
+            gc_gen2 = self._gc_gen2
+            self._gc_max_s = 0.
+            self._gc_gen2 = 0
+        return gc_max_s, gc_gen2
+
+    def note_sentinel_lag_s(self, lag_s):
+        """Record one overshoot of the sentinel's sleep (the emitter
+        thread's own, between points): published as `gil_lag_ms`, the
+        maximum since the last point."""
+        try:
+            with self._lock:
+                if lag_s > self._gil_max_s:
+                    self._gil_max_s = lag_s
+        except Exception:
+            pass
+
+    def _cpu_fields(self, now):
+        """`cpu_percent` over the interval since the last point (since
+        construction for the first), from `os.times`; under the lock."""
+        t = os.times()
+        cpu = float(t.user + t.system)
+        last = self._cpu_last
+        self._cpu_last = (cpu, now)
+        elapsed, used = now - last[1], cpu - last[0]
+        if elapsed <= 0.:
+            return {}
+        return {'cpu_percent': float(100. * used / elapsed)}
+
     def _build_point(self):
         now = time.monotonic()
+        gc_max_s, gc_gen2 = self._take_gc()     # outside `_lock`, see __init__
         with self._lock:
             fields = {
                 'uptime_s': float(now - self._t0),
                 'cycle_overrun_ms': float(self._overrun_max_ms),
                 'cycle_overruns_total': int(self._overruns),
+                'gc_pause_ms': float(gc_max_s * 1e3),
+                'gc_gen2': int(gc_gen2),
+                'gil_lag_ms': float(self._gil_max_s * 1e3),
+                'n_threads': int(threading.active_count()),
+                **self._cpu_fields(now),
                 **self._cycle_fields(now),
                 }
             self._overrun_max_ms = 0.
+            self._gil_max_s = 0.
             if self._counter is not None:
                 fields['n_warnings'] = int(self._counter.n_warnings)
                 fields['n_errors'] = int(self._counter.n_errors)
@@ -392,6 +514,7 @@ class ProcessHealth:
             self._thread = threading.Thread(
                 target=self._run, name='process-health', daemon=True)
             thread = self._thread
+        self._install_gc_hook()
         thread.start()
 
     def stop(self):
@@ -402,16 +525,35 @@ class ProcessHealth:
         if thread is not None:
             self._stop.set()
             thread.join(timeout=2.)
+        self._remove_gc_hook()
 
     def _run(self):
+        """The emitter thread: a point every interval, and between
+        points the sentinel - it sleeps `HEALTH_SENTINEL_SLEEP_S` at a
+        time and notes each overshoot, which is how late this thread
+        was scheduled and got the interpreter lock back."""
+        sleep_s = min(HEALTH_SENTINEL_SLEEP_S, self._interval_s)
+        next_at = time.monotonic()
         while True:
-            try:
-                self._emit_once()
-            except Exception as e:
-                self._warn_once('emit', 'Could not emit the process health'
-                                        ' point: %s', e)
-            if self._stop.wait(self._interval_s):
+            now = time.monotonic()
+            if now >= next_at:
+                try:
+                    self._emit_once()
+                except Exception as e:
+                    self._warn_once('emit', 'Could not emit the process'
+                                            ' health point: %s', e)
+                # Absolute schedule: the point cadence is not stretched
+                # by the emit's own duration; after a stall longer than
+                # an interval (a database timing out) the next point
+                # waits a full interval instead of following at once
+                next_at += self._interval_s
+                now = time.monotonic()
+                if next_at < now:
+                    next_at = now + self._interval_s
+            t0 = time.monotonic()
+            if self._stop.wait(sleep_s):
                 return
+            self.note_sentinel_lag_s(time.monotonic() - t0 - sleep_s)
 
     def _emit_once(self):
         with self._lock:

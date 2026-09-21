@@ -5,6 +5,7 @@ temporary directory. Runs under pytest.
 """
 
 import configparser
+import gc
 import logging
 import logging.handlers
 import math
@@ -400,9 +401,10 @@ def test_field_types_are_exact(process_health):
     process_health.register_db_writer(FakeWriter(7, 1))
     process_health.note_cycle_overrun_ms(3.)
     fields = process_health._build_point()['fields']
-    floats = ('uptime_s', 'cycle_overrun_ms')
+    floats = ('uptime_s', 'cycle_overrun_ms', 'gc_pause_ms', 'gil_lag_ms',
+              'cpu_percent')
     ints = ('cycle_overruns_total', 'n_warnings', 'n_errors',
-            'n_written', 'n_dropped')
+            'n_written', 'n_dropped', 'gc_gen2', 'n_threads')
     assert set(fields) == set(floats) | set(ints)
     for key in floats:
         assert type(fields[key]) is float, key
@@ -464,6 +466,106 @@ def test_overrun_count_is_cumulative(process_health):
     process_health.note_cycle_overrun_ms(1.)
     assert process_health._build_point()[
         'fields']['cycle_overruns_total'] == 4
+
+
+def test_gc_pause_is_the_max_then_resets_and_counts_gen2(process_health):
+    """A real collection through the hook, installed by `start` and
+    removed by `stop`."""
+    process_health.start(lambda batch: None)
+    try:
+        assert process_health._gc_callback in gc.callbacks
+        gc.collect(2)
+        fields = process_health._build_point()['fields']
+    finally:
+        process_health.stop()
+    assert process_health._gc_callback not in gc.callbacks
+    assert fields['gc_pause_ms'] > 0.
+    assert fields['gc_gen2'] >= 1
+    later = process_health._build_point()['fields']
+    assert later['gc_pause_ms'] == 0.
+    assert later['gc_gen2'] == 0
+
+
+def test_a_collection_inside_the_point_lock_cannot_deadlock(process_health):
+    """The collector's callback runs in the thread that allocated past
+    the threshold, which can be the thread building the point INSIDE
+    `_lock`; a callback that took `_lock` would block its own holder
+    forever. Forced two ways: a collection from inside the locked
+    region, and automatic ones with the threshold at one allocation."""
+    process_health.start(lambda batch: None)
+    thresholds = gc.get_threshold()
+    try:
+        original = process_health._cycle_fields
+
+        def collecting(now):
+            gc.collect(2)
+            return original(now)
+        process_health._cycle_fields = collecting
+        done = threading.Event()
+
+        def build():
+            process_health._build_point()
+            process_health._cycle_fields = original
+            gc.set_threshold(1, 1, 1)
+            for _ in range(300):
+                process_health._build_point()
+            done.set()
+        t = threading.Thread(target=build, daemon=True)
+        t.start()
+        assert done.wait(10.), 'the point builder deadlocked on its own lock'
+    finally:
+        gc.set_threshold(*thresholds)
+        process_health.stop()
+
+
+def test_sentinel_lag_is_the_max_then_resets(process_health):
+    for lag in (0.002, 0.031, 0.0005):
+        process_health.note_sentinel_lag_s(lag)
+    assert process_health._build_point()['fields']['gil_lag_ms'] == pytest.approx(31.)
+    assert process_health._build_point()['fields']['gil_lag_ms'] == 0.
+
+
+def test_the_emitter_is_the_sentinel_between_points(process_health):
+    seen = []
+    process_health.start(seen.append)
+    try:
+        time.sleep(0.15)
+    finally:
+        process_health.stop()
+    values = [b[0]['fields']['gil_lag_ms'] for b in seen]
+    assert values and all(0. <= v < 1e3 for v in values)
+
+
+def test_cpu_percent_is_the_interval_mean(process_health):
+    time.sleep(0.05)
+    first = process_health._build_point()['fields']
+    assert 0. <= first['cpu_percent'] < 150.
+    t0 = time.perf_counter()
+    while time.perf_counter() - t0 < 0.1:
+        sum(range(1000))
+    assert process_health._build_point()['fields']['cpu_percent'] > 20.
+
+
+def test_a_stalled_write_is_not_followed_by_a_burst():
+    """After a write longer than the interval the next point waits a
+    full interval: a database timing out must not turn the emitter
+    into a back-to-back requester."""
+    ph = health.ProcessHealth(interval_s=0.05)
+    starts = []
+
+    def write(batch):
+        starts.append(time.monotonic())
+        if len(starts) == 1:
+            time.sleep(0.2)
+    ph.start(write)
+    try:
+        time.sleep(0.5)
+    finally:
+        ph.stop()
+    gaps = [b - a for a, b in zip(starts, starts[1:])]
+    assert gaps, 'the emitter wrote once at most'
+    assert gaps[0] >= 0.2 + 0.04, gaps
+    assert all(g >= 0.04 for g in gaps[1:]), gaps
 
 
 def test_a_logger_writes_no_loop_lag(process_health):
