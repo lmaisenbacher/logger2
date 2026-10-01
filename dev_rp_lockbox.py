@@ -68,6 +68,39 @@ gates the rest, because the SCPI server answers a monitor query with an
 error while the service is down, which the client only sees as a
 receive timeout.
 
+rp-lockbox 1.4.0 gives each PID two parameter sets, selected by a digital
+input or fixed. The setpoint, the gains (`GlobalGain`, `PGain`, `IGain`,
+`IIGain`, `DGain`), the lock window (`RelockMin`, `RelockMax`) and the new
+`Holdoff` (s: after a switch into the set, the lock status cannot go
+from locked to unlocked for this time) exist once per set: their channels
+take the optional key 'Set' (1, the default, or 2). Set 1 is read with
+the commands of the earlier releases, so a configuration without 'Set'
+works with any lockbox. Version 1.4.0 adds the channel types:
+
+- `ParamSet` (per PID): the parameter set in use at the poll (1 or 2)
+  under the channel's own field, with the companion `pset_mode` (the
+  selection: 'PSET1', 'PSET2', 'HIGH2' = set 2 while the input is high,
+  'HIGH1' = set 1 while it is high). The set can switch far faster than
+  the poll; `ParamSetSwitches` counts the switches.
+- `ParamSetSwitches` (per PID): from the FPGA's event counters, each as
+  the events since the previous poll: the parameter set switches under
+  the channel's own field (e.g. 'switches'), with the companions
+  `holdoffs_went_outside` (holdoffs during which the relock input went
+  outside the lock window: the holdoff kept a lock drop from being
+  counted) and `holdoffs_ended_outside` (holdoffs that ended with it
+  still outside: the lock status drops then). The first poll writes zeros
+  (no baseline). The counters run since the FPGA was loaded and wrap at
+  2^32; a difference beyond 2^31 is taken as a reload, and the new count
+  as that poll's events. They need no monitor service.
+
+With version 1.4.0 a `LockDrops` channel also writes `short_drops`: how
+many of the poll's drops fell between two of the monitor's polls (the
+monitor sees them in the FPGA's unlock counter); they are included in
+its own field. An FPGA image without the counters makes the query fail
+once, and the field is left out from then on. A lock event's window is
+the one of the parameter set in use at the poll, named in the text when
+it is set 2 ("... window 0.500-1.200 V of parameter set 2").
+
 Booleans are logged as 0/1 integers (InfluxDB would type a Python bool
 as a boolean field). Within one poll every SCPI query is sent once: the
 readers share a per-poll memo, so the relock input read for a lock
@@ -94,11 +127,22 @@ UNLOCKS_TOTAL_FIELD_KEY = 'unlocks_total'
 UNLOCKED_TIME_FIELD_KEY = 'unlocked_s'
 LONGEST_UNLOCK_FIELD_KEY = 'longest_unlock_s'
 SERVO_DROPS_FIELD_KEY = 'servo_drops'
+SHORT_DROPS_FIELD_KEY = 'short_drops'
 #: Companion fields of a `FastAnalogInRMS` channel
 DECIMATION_FIELD_KEY = 'decimation'
 WINDOW_FIELD_KEY = 'window_s'
 #: The channel types served by the lockbox monitor service
 MONITOR_TYPES = ('LockDrops', 'FastAnalogInRMS', 'FastAnalogInMean')
+
+#: Companion field of a `ParamSet` channel
+PSET_MODE_FIELD_KEY = 'pset_mode'
+#: The fields of a `ParamSetSwitches` channel per driver counter: None = the
+#: channel's own field
+SWITCH_COUNTER_FIELD_KEYS = {
+    'switches': None, 'holdoffs_went_outside': 'holdoffs_went_outside',
+    'holdoffs_ended_outside': 'holdoffs_ended_outside'}
+#: The FPGA's event counters wrap at 2^32
+COUNTER_MODULUS = 2**32
 
 
 class Device(RPLockbox):
@@ -125,17 +169,30 @@ class Device(RPLockbox):
         'RelockMin':      ('pid', 'get_relock_minimum', float),
         'RelockMax':      ('pid', 'get_relock_maximum', float),
         'RelockStepsize': ('pid', 'get_relock_stepsize', float),
+        'Holdoff':        ('pid', 'get_relock_holdoff', float),
     }
+    #: The channel types of a parameter set (the key 'Set')
+    PSET_TYPES = ('GlobalGain', 'PGain', 'IGain', 'IIGain', 'DGain', 'Setpoint',
+                  'RelockMin', 'RelockMax', 'Holdoff')
     #: Every channel type, for the configuration check
-    CHANNEL_TYPES = tuple(SIMPLE_READERS) + ('RelockInput', 'LockStatus') + MONITOR_TYPES
+    CHANNEL_TYPES = (tuple(SIMPLE_READERS) + ('RelockInput', 'LockStatus') + MONITOR_TYPES
+                     + ('ParamSet', 'ParamSetSwitches'))
 
     def __init__(self, device):
         for channel_id, chan in device['Channels'].items():
+            where = f'channel \'{channel_id}\' of device \'{device["Device"]}\''
             if chan.get('Type') not in self.CHANNEL_TYPES:
                 raise DeviceError(
-                    f'Unknown channel type \'{chan.get("Type")}\' for channel'
-                    f' \'{channel_id}\' of device \'{device["Device"]}\''
+                    f'Unknown channel type \'{chan.get("Type")}\' for {where}'
                     f' (one of {", ".join(self.CHANNEL_TYPES)})')
+            if 'Set' in chan:
+                if chan['Type'] not in self.PSET_TYPES:
+                    raise DeviceError(
+                        f'The key \'Set\' of {where}: a \'{chan["Type"]}\' channel has no'
+                        f' parameter set (only {", ".join(self.PSET_TYPES)})')
+                if chan['Set'] not in RPLockbox.PSETS or isinstance(chan['Set'], bool):
+                    raise DeviceError(
+                        f'Invalid parameter set {chan["Set"]!r} for {where} (1 or 2)')
         super().__init__(device)
         # Lock state per `LockStatus` channel at the previous poll (absent
         # = no poll yet)
@@ -145,6 +202,12 @@ class Device(RPLockbox):
         self._last_drops = {}
         # The monitor's state at the previous poll, for the outage warning
         self._monitor_was_alive = None
+        # Per `ParamSetSwitches` channel: the counts at the previous poll
+        self._last_counters = {}
+        # False once a lockbox showed it has no parameter sets / no short
+        # drop count (its FPGA image predates them): not asked again
+        self._has_psets = True
+        self._has_short_drops = True
         # Per-poll memo of driver query results (see the module docstring)
         self._memo = {}
 
@@ -189,16 +252,35 @@ class Device(RPLockbox):
         pin = self._query('get_relock_input', num_in, num_out)
         return float(self._query('get_aux_analog_input', pin))
 
+    def _active_pset(self, num_in, num_out):
+        """The parameter set the PID uses at this poll; 1 with a lockbox
+        without parameter sets (its FPGA image answers the query with an
+        error, seen as a timeout: asked once)."""
+        if not self._has_psets:
+            return 1
+        try:
+            return self._query('get_active_pset', num_in, num_out)
+        except DeviceError as err:
+            self._has_psets = False
+            logger.warning(
+                '\'%s\': no parameter set in use readable (%s): lock events quote the window'
+                ' of parameter set 1 until the logger restarts', self.device['Device'], err)
+            return 1
+
     def _lock_event(self, num_in, num_out, locked):
         """The lock event text: "locked", or "unlocked: ..." with where the
-        relock input sits relative to the window at this poll."""
+        relock input sits relative to the window, both at this poll (the
+        window of the parameter set in use, named when it is set 2)."""
         if locked:
             return 'locked'
         pin = self._query('get_relock_input', num_in, num_out)
         voltage = self._query('get_aux_analog_input', pin)
-        vmin = self._query('get_relock_minimum', num_in, num_out)
-        vmax = self._query('get_relock_maximum', num_in, num_out)
+        pset = self._active_pset(num_in, num_out)
+        vmin = self._query('get_relock_minimum', num_in, num_out, pset)
+        vmax = self._query('get_relock_maximum', num_in, num_out, pset)
         window = f'window {vmin:.3f}-{vmax:.3f} V'
+        if pset != 1:
+            window += f' of parameter set {pset}'
         if voltage < vmin:
             return f'unlocked: relock input {voltage:.3f} V below {window}'
         if voltage > vmax:
@@ -276,16 +358,71 @@ class Device(RPLockbox):
             if last is not None:
                 longest = max((event['duration_s'] for event in events), default=0.0)
             index = max((event['index'] for event in events), default=after)
+        short_total = self._short_drop_total(num_in, num_out)
         self._last_drops[channel_id] = {
             'total': total, 'unlocked_s': unlocked_s, 'index': index,
-            'open': bool(monitor['drop_open'])}
-        return {
+            'open': bool(monitor['drop_open']), 'short': short_total}
+        reading = {
             chan['field-key']: drops,
             UNLOCKS_TOTAL_FIELD_KEY: total,
             UNLOCKED_TIME_FIELD_KEY: unlocked_delta,
             LONGEST_UNLOCK_FIELD_KEY: longest,
             SERVO_DROPS_FIELD_KEY: int(monitor['unlocks_since_servo']),
         }
+        if short_total is not None:
+            # Of the poll's drops, the short ones, by the same baseline rule
+            if last is None or last['short'] is None:
+                reading[SHORT_DROPS_FIELD_KEY] = 0
+            elif restarted:
+                reading[SHORT_DROPS_FIELD_KEY] = short_total
+            else:
+                reading[SHORT_DROPS_FIELD_KEY] = max(short_total - last['short'], 0)
+        return reading
+
+    def _short_drop_total(self, num_in, num_out):
+        """The monitor's count of short drops since it started, or None with
+        an FPGA image without the event counters (its error is seen as a
+        timeout: asked once)."""
+        if not self._has_short_drops:
+            return None
+        try:
+            return int(self._query('get_short_unlock_count', num_in, num_out))
+        except DeviceError as err:
+            self._has_short_drops = False
+            logger.warning(
+                '\'%s\': no short drop count readable (%s): the lock drop channels write no'
+                ' \'%s\' until the logger restarts', self.device['Device'], err,
+                SHORT_DROPS_FIELD_KEY)
+            return None
+
+    def _read_param_set(self, channel_id, chan):
+        """The parameter set in use, with the selection mode."""
+        num_in, num_out = self.get_pid_channels(channel_id, chan)
+        return {
+            chan['field-key']: int(self._query('get_active_pset', num_in, num_out)),
+            PSET_MODE_FIELD_KEY: self._query('get_pset_mode', num_in, num_out),
+        }
+
+    def _read_switch_counters(self, channel_id, chan):
+        """The FPGA's events since the previous poll (see the module
+        docstring)."""
+        num_in, num_out = self.get_pid_channels(channel_id, chan)
+        counts = self._query('get_counters', num_in, num_out)
+        last = self._last_counters.get(channel_id)
+        self._last_counters[channel_id] = dict(counts)
+        if last is None:
+            # No baseline yet: no events "since the previous poll"
+            events = {counter: 0 for counter in SWITCH_COUNTER_FIELD_KEYS}
+        else:
+            events = {counter: (counts[counter] - last[counter]) % COUNTER_MODULUS
+                      for counter in SWITCH_COUNTER_FIELD_KEYS}
+            if any(n >= COUNTER_MODULUS // 2 for n in events.values()):
+                # Not a wrap: the FPGA was loaded again, all counts began anew
+                logger.info('\'%s\': %s: the event counters began anew (FPGA reloaded): %s',
+                            self.device['Device'], channel_id, counts)
+                events = {counter: counts[counter] for counter in SWITCH_COUNTER_FIELD_KEYS}
+        return {field_key or chan['field-key']: events[counter]
+                for counter, field_key in SWITCH_COUNTER_FIELD_KEYS.items()}
 
     def _read_input_rms(self, channel_id, chan):
         """The input's standard deviation over the monitor's last window,
@@ -321,11 +458,17 @@ class Device(RPLockbox):
                 args = ([self.get_device_channel(channel_id, chan)]
                         if source == 'channel'
                         else self.get_pid_channels(channel_id, chan))
+                if ctype in self.PSET_TYPES:
+                    args.append(chan.get('Set', 1))
                 readings[channel_id] = as_type(self._query(method, *args))
             elif ctype == 'RelockInput':
                 readings[channel_id] = self._read_relock_input(channel_id, chan)
             elif ctype == 'LockStatus':
                 readings[channel_id] = self._read_lock_status(channel_id, chan)
+            elif ctype == 'ParamSet':
+                readings[channel_id] = self._read_param_set(channel_id, chan)
+            elif ctype == 'ParamSetSwitches':
+                readings[channel_id] = self._read_switch_counters(channel_id, chan)
             elif ctype in MONITOR_TYPES:
                 if monitor_alive is None:
                     monitor_alive = self._monitor_alive()

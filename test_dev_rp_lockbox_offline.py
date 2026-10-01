@@ -16,7 +16,8 @@ from readings import reading_fields
 class FakeLockbox(dev_rp_lockbox.Device):
     """The logger's device class over a scripted SCPI transport: `answers`
     maps each query the driver sends to the lockbox's reply; `sent` records
-    every query."""
+    every query and command. A query without an answer fails like one the
+    lockbox answers with an error: no reply, a receive timeout."""
 
     def __init__(self, device, answers):
         self.answers = answers
@@ -29,8 +30,13 @@ class FakeLockbox(dev_rp_lockbox.Device):
     def close(self):
         pass
 
+    def tx_txt(self, msg):
+        self.sent.append(msg)
+
     def txrx_txt(self, msg):
         self.sent.append(msg)
+        if msg not in self.answers:
+            raise DeviceError(f'{msg}: Failed to receive from socket. Error: timed out')
         return self.answers[msg]
 
 
@@ -73,6 +79,7 @@ ANSWERS = {
     'PID:IN2:OUT2:REL?': 'ON', 'PID:IN2:OUT2:REL:MIN?': '0.5',
     'PID:IN2:OUT2:REL:MAX?': '1.2', 'PID:IN2:OUT2:REL:STEP?': '10',
     'PID:IN2:OUT2:REL:INP?': 'AIN1', 'PID:IN2:OUT2:LOCKED?': 'ON',
+    'PID:IN2:OUT2:PSET:ACT?': 'PSET1',
 }
 
 
@@ -321,3 +328,183 @@ def test_driver_parsing_of_the_monitor_replies():
         box.get_pid_monitor(2, 2)
     with pytest.raises(DeviceError, match='Invalid input statistics decimation'):
         box.set_fast_analog_input_stats_decimation(4096)
+
+
+# The parameter sets and the event counters (rp-lockbox 1.4.0)
+
+PSET_CHANNELS = {
+    'P gain PID22': channel('PGain', 'gain', PID='22'),
+    'P gain PID22 set 1': channel('PGain', 'gain', PID='22', Set=1),
+    'P gain PID22 set 2': channel('PGain', 'gain', PID='22', Set=2),
+    'Global gain PID22 set 2': channel('GlobalGain', 'gain', PID='22', Set=2),
+    'Setpoint PID22 set 2': channel('Setpoint', 'voltage', PID='22', Set=2),
+    'Relock window min PID22 set 2': channel('RelockMin', 'voltage', PID='22', Set=2),
+    'Holdoff PID22': channel('Holdoff', 'holdoff', PID='22'),
+    'Holdoff PID22 set 2': channel('Holdoff', 'holdoff', PID='22', Set=2),
+    'Parameter set PID22': channel('ParamSet', 'set', PID='22'),
+    'Switches PID22': channel('ParamSetSwitches', 'switches', PID='22'),
+}
+
+PSET_DEVICE = dict(DEVICE, Channels=PSET_CHANNELS)
+
+PSET_ANSWERS = {
+    'PID:IN2:OUT2:KP?': '0.5', 'PID:IN2:OUT2:PSET2:KP?': '0.25',
+    'PID:IN2:OUT2:PSET2:KG?': '0.6', 'PID:IN2:OUT2:PSET2:SETPoint?': '0.05',
+    'PID:IN2:OUT2:PSET2:REL:MIN?': '0.3',
+    'PID:IN2:OUT2:REL:HOLD?': '0', 'PID:IN2:OUT2:PSET2:REL:HOLD?': '0.002',
+    'PID:IN2:OUT2:PSET:ACT?': 'PSET2', 'PID:IN2:OUT2:PSET:MODE?': 'HIGH2',
+    'PID:IN2:OUT2:COUNT?': '10,2,1,7',
+}
+
+
+def pset_fields(box, readings):
+    return {channel_id: reading_fields(PSET_CHANNELS[channel_id], reading)
+            for channel_id, reading in readings.items()}
+
+
+def test_parameter_set_channels_read_their_set():
+    box = FakeLockbox(PSET_DEVICE, dict(PSET_ANSWERS))
+    got = pset_fields(box, box.get_values())
+    # Set 1, with or without the key, is read with the earlier releases' command
+    assert got['P gain PID22'] == {'gain': 0.5}
+    assert got['P gain PID22 set 1'] == {'gain': 0.5}
+    assert box.sent.count('PID:IN2:OUT2:KP?') == 1
+    assert got['P gain PID22 set 2'] == {'gain': 0.25}
+    assert got['Global gain PID22 set 2'] == {'gain': 0.6}
+    assert got['Setpoint PID22 set 2'] == {'voltage': 0.05}
+    assert got['Relock window min PID22 set 2'] == {'voltage': 0.3}
+    assert got['Holdoff PID22'] == {'holdoff': 0.0}
+    assert got['Holdoff PID22 set 2'] == {'holdoff': 0.002}
+    assert got['Parameter set PID22'] == {'set': 2, 'pset_mode': 'HIGH2'}
+    assert type(got['Parameter set PID22']['set']) is int
+
+
+def test_the_set_key_is_checked_at_startup():
+    for chan, match in ((channel('HoldState', 'enabled', PID='22', Set=2), 'has no parameter set'),
+                        (channel('PGain', 'gain', PID='22', Set=3), 'Invalid parameter set 3'),
+                        (channel('PGain', 'gain', PID='22', Set='2'), 'Invalid parameter set'),
+                        (channel('PGain', 'gain', PID='22', Set=True), 'Invalid parameter set')):
+        with pytest.raises(DeviceError, match=match):
+            FakeLockbox(dict(DEVICE, Channels={'Bad': chan}), {})
+
+
+def test_set_switches_are_the_events_since_the_previous_poll(caplog):
+    answers = dict(PSET_ANSWERS)
+    box = FakeLockbox(PSET_DEVICE, answers)
+    # No baseline yet
+    assert pset_fields(box, box.get_values())['Switches PID22'] == {
+        'switches': 0, 'holdoffs_went_outside': 0, 'holdoffs_ended_outside': 0}
+    answers['PID:IN2:OUT2:COUNT?'] = '14,3,1,12'
+    assert pset_fields(box, box.get_values())['Switches PID22'] == {
+        'switches': 4, 'holdoffs_went_outside': 1, 'holdoffs_ended_outside': 0}
+    # The FPGA was loaded again: all counts began anew, even those that grew
+    answers['PID:IN2:OUT2:COUNT?'] = '1,0,2,15'
+    with caplog.at_level('INFO', logger='dev_rp_lockbox'):
+        got = pset_fields(box, box.get_values())['Switches PID22']
+    assert got == {'switches': 1, 'holdoffs_went_outside': 0, 'holdoffs_ended_outside': 2}
+    assert 'the event counters began anew' in caplog.text
+    # A counter wraps around at 2^32
+    answers['PID:IN2:OUT2:COUNT?'] = f'{2**32 - 3},0,0,0'
+    box = FakeLockbox(PSET_DEVICE, answers)
+    box.get_values()
+    answers['PID:IN2:OUT2:COUNT?'] = '2,1,0,0'
+    got = pset_fields(box, box.get_values())['Switches PID22']
+    assert got == {'switches': 5, 'holdoffs_went_outside': 1, 'holdoffs_ended_outside': 0}
+
+
+SHORT_ANSWERS = dict(MONITOR_ANSWERS, **{'PID:IN2:OUT2:UNL:SHOR?': '5'})
+
+
+def test_lock_drops_count_their_short_drops():
+    answers = dict(SHORT_ANSWERS)
+    box = FakeLockbox(MONITOR_DEVICE, answers)
+    assert monitor_fields(box, box.get_values())['Lock drops PID22']['short_drops'] == 0
+    # Two drops since, one of them short
+    answers['PID:IN2:OUT2:MON?'] = '1,10.0,1,5200.1,19,3.35,5,1.05,0.12,0,2.0,0.120,22'
+    answers['PID:IN2:OUT2:UNL:EVEN? 17'] = '2,18,5.0,0.006,19,2.0,0.120'
+    answers['PID:IN2:OUT2:UNL:SHOR?'] = '6'
+    got = monitor_fields(box, box.get_values())['Lock drops PID22']
+    assert got['unlocks'] == 2 and got['short_drops'] == 1
+    # The monitor restarted: its new short count is the poll's
+    answers['PID:IN2:OUT2:MON?'] = '1,30.0,1,40.0,2,0.02,2,0.02,0.015,0,10.0,0.015,2'
+    answers['PID:IN2:OUT2:UNL:EVEN? 0'] = '2,1,20.0,0.005,2,10.0,0.015'
+    answers['PID:IN2:OUT2:UNL:SHOR?'] = '1'
+    got = monitor_fields(box, box.get_values())['Lock drops PID22']
+    assert got['unlocks'] == 2 and got['short_drops'] == 1
+
+
+def test_without_the_short_drop_count_the_field_is_left_out(caplog):
+    # MONITOR_ANSWERS has no reply to UNL:SHOR? (an FPGA image before 1.4.0)
+    box = FakeLockbox(MONITOR_DEVICE, dict(MONITOR_ANSWERS))
+    with caplog.at_level('WARNING', logger='dev_rp_lockbox'):
+        got = monitor_fields(box, box.get_values())['Lock drops PID22']
+        box.get_values()
+    assert 'short_drops' not in got and got['unlocks_total'] == 17
+    # Asked once (each attempt costs a timeout), warned once
+    assert box.sent.count('PID:IN2:OUT2:UNL:SHOR?') == 1
+    assert caplog.text.count('no short drop count readable') == 1
+
+
+def test_a_lock_event_quotes_the_window_of_the_set_in_use():
+    answers = dict(ANSWERS)
+    answers['PID:IN2:OUT2:LOCKED?'] = 'OFF'
+    answers['ANALOG:PIN? AIN1'] = '0.12'
+    answers['PID:IN2:OUT2:PSET:ACT?'] = 'PSET2'
+    answers['PID:IN2:OUT2:PSET2:REL:MIN?'] = '0.3'
+    answers['PID:IN2:OUT2:PSET2:REL:MAX?'] = '0.9'
+    box = FakeLockbox(DEVICE, answers)
+    got = fields(box, box.get_values())
+    assert got['Lock status PID22']['lock_event'] == (
+        'unlocked: relock input 0.120 V below window 0.300-0.900 V of parameter set 2'
+        ' (logger started)')
+    # The window channels still log their own set
+    assert got['Relock window min PID22'] == {'voltage': 0.5}
+
+
+def test_a_lockbox_without_parameter_sets_quotes_set_1(caplog):
+    answers = dict(ANSWERS)
+    del answers['PID:IN2:OUT2:PSET:ACT?']
+    answers['PID:IN2:OUT2:LOCKED?'] = 'OFF'
+    answers['ANALOG:PIN? AIN1'] = '0.12'
+    box = FakeLockbox(DEVICE, answers)
+    with caplog.at_level('WARNING', logger='dev_rp_lockbox'):
+        got = fields(box, box.get_values())['Lock status PID22']
+        answers['PID:IN2:OUT2:LOCKED?'] = 'ON'
+        box.get_values()
+        answers['PID:IN2:OUT2:LOCKED?'] = 'OFF'
+        box.get_values()
+    assert got['lock_event'] == (
+        'unlocked: relock input 0.120 V below window 0.500-1.200 V (logger started)')
+    assert box.sent.count('PID:IN2:OUT2:PSET:ACT?') == 1
+    assert caplog.text.count('no parameter set in use readable') == 1
+
+
+def test_driver_commands_of_the_parameter_sets():
+    box = FakeLockbox(dict(DEVICE, Channels={}), dict(PSET_ANSWERS))
+    box.set_kp(1, 2, 0.1)
+    box.set_kp(1, 2, 0.2, pset=2)
+    box.set_relock_holdoff(2, 1, 0.001, pset=2)
+    box.set_pset_mode(2, 2, 'HIGH1')
+    box.set_pset_input(2, 2, 'DIO0_N')
+    box.copy_pset(2, 2, 1)
+    box.set_lock(1, 1, True)
+    box.set_lock(1, 1, False)
+    assert box.sent == [
+        'PID:IN1:OUT2:KP 0.1', 'PID:IN1:OUT2:PSET2:KP 0.2', 'PID:IN2:OUT1:PSET2:REL:HOLD 0.001',
+        'PID:IN2:OUT2:PSET:MODE HIGH1', 'PID:IN2:OUT2:PSET:INP DIO0_N',
+        'PID:IN2:OUT2:PSET:COPY PSET1', 'PID:IN1:OUT1:LOCK 1', 'PID:IN1:OUT1:LOCK 0']
+    assert box.get_active_pset(2, 2) == 2
+    assert box.get_counters(2, 2) == {
+        'switches': 10, 'holdoffs_went_outside': 2, 'holdoffs_ended_outside': 1, 'unlocks': 7}
+    for call, match in ((lambda: box.get_kp(2, 2, pset=3), 'Invalid parameter set 3'),
+                        (lambda: box.set_pset_mode(2, 2, 'HIGH'), 'Invalid parameter set mode'),
+                        (lambda: box.set_pset_input(2, 2, 'DIO1_P'), 'Invalid parameter set input'),
+                        (lambda: box.copy_pset(2, 2, 0), 'Invalid parameter set 0')):
+        with pytest.raises(DeviceError, match=match):
+            call()
+    box.answers['PID:IN2:OUT2:PSET:ACT?'] = ''
+    with pytest.raises(DeviceError, match='may predate the parameter sets'):
+        box.get_active_pset(2, 2)
+    box.answers['PID:IN2:OUT2:COUNT?'] = ''
+    with pytest.raises(DeviceError, match='may predate the event counters'):
+        box.get_counters(2, 2)
