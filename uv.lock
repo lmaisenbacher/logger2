@@ -164,8 +164,8 @@ wheels = [
 
 [[package]]
 name = "amodevices"
-version = "0.1.28"
-source = { git = "https://github.com/lmaisenbacher/amodevices.git#387f309936e8ec2113e334069324eafafca32788" }
+version = "0.1.33"
+source = { git = "https://github.com/lmaisenbacher/amodevices.git#3b0a98b99c5746886ec628baaaa772e6a3056b91" }
 dependencies = [
     { name = "nidaqmx" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
