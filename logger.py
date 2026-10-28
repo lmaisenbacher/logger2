@@ -10,8 +10,18 @@ import json
 import logging
 import argparse
 import atexit
+import os
 from pathlib import Path
 from types import SimpleNamespace
+
+# One OpenBLAS thread unless the environment names a number: numpy's
+# bundled OpenBLAS otherwise starts a thread per logical CPU when it
+# loads, each with a committed buffer, and no logger does linear
+# algebra. OpenBLAS reads the variable once, when it loads, so this
+# comes before every import that brings numpy in (the device modules,
+# `influxdb_client`; README, "BLAS threads")
+os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
+
 from ruamel.yaml import YAML
 
 import health

@@ -141,6 +141,10 @@ InfluxDB pins a field's type per measurement, and the servers write this same me
 
 The health point deliberately does not ride the clock-sync heartbeat, which is written per DEVICE: an appended health point would emit once per device, fifteen identical points every 10 s on a populated logger. The heartbeat is also the fleet's liveness signal and cannot sit behind a diagnostic.
 
+## BLAS threads
+
+OpenBLAS, the linear-algebra library numpy bundles, starts one worker thread per logical CPU when it loads and commits a buffer of about 32 MB for each. The buffers are hardly ever touched, but Windows charges them to its commit limit all the same: about 0.75 GB per logger on a 24-thread PC. No logger does linear algebra, so "logger.py" sets `OPENBLAS_NUM_THREADS=1` before any of its imports that bring numpy in (the device modules, `influxdb_client`), unless the environment already names a number - the place for one is the service definition (FireDaemon's Environment tab, systemd's `Environment=`). OpenBLAS reads the variable only when it loads, and limiting its threads afterwards neither ends them nor releases their buffers. "test_blas_threads.py" checks the order.
+
 ## Version
 
 logger2's version is the `[project]` version in "pyproject.toml", manual SemVer, bumped in the same commit as the change it describes: PATCH for fixes and refinements that change nothing about what is recorded, MINOR for a new capability (a device module, a channel type, a logged quantity), MAJOR for a change older readers of the loggers' database series would misread.
