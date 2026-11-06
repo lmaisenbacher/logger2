@@ -1,6 +1,7 @@
 [Unit]
 Description=Logger for chiller for 1064 nm fiber amplifier
-After=multi-user.target
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 Type=simple

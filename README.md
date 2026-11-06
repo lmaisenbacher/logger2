@@ -180,7 +180,8 @@ Continuing the example of the laser chiller, the configuration file can e.g. loo
 ```
 [Unit]
 Description=Logger for chiller for 1064 nm fiber amplifier
-After=multi-user.target
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 Type=simple
@@ -192,6 +193,8 @@ User=rp-chiller
 [Install]
 WantedBy=multi-user.target
 ```
+
+`After=network-online.target` starts the logger once the network is up. Do not order it after `multi-user.target`: that target waits for the whole boot, a graphical login screen included, and a boot that stalls there never starts the logger.
 
 Importantly, the daemon is run under the user "rp-chiller", as given by `User=rp-chiller`, which is the user for which uv was installed here. Also important is to define the working directory with `WorkingDirectory=...` to be the repository directory, where uv finds "pyproject.toml" and the virtual environment, and where the configuration file "config.ini" and the device JSON file defined in that configuration file are located, which here is just the directory of the repository itself. To use a different "config.ini" - and the device JSON defined in that "config.ini" - use the `-c` command line argument, e.g., to use "home/rp-chiller/Coding/logger2-config/chiller/config.ini":
 
