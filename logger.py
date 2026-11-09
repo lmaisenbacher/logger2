@@ -323,10 +323,18 @@ if __name__ == "__main__":
     # file that is never rotated, so per-reading lines at the update
     # interval reach GB over time. The first LOG_FIRST_N readings of each channel (and
     # polls of each device) are logged in full — the service log shows
-    # the startup working — then only every LOG_EVERY_Mth, announced at
-    # the transition. Warnings and errors are never thinned.
+    # the startup working — then only every LOG_EVERY_Mth ([Logger]
+    # log_every, default 100), announced at the transition. Warnings and
+    # errors are never thinned.
     LOG_FIRST_N = 10
-    LOG_EVERY_M = 100
+    try:
+        LOG_EVERY_M = CONF.getint("Logger", "log_every", fallback=100)
+    except ValueError:
+        LOG_EVERY_M = 0
+    if LOG_EVERY_M < 1:
+        msg = '[Logger] log_every must be a whole number of 1 or more'
+        logger.error(msg)
+        raise LoggerError(msg)
     log_counts = {}
 
     def log_this_reading(key):
