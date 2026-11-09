@@ -95,6 +95,10 @@ READ_FAIL_STREAK_BACKOFF = 3
 # flooding the log
 OVERRUN_WARN_INTERVAL_S = 60.0
 
+# Wait after a cycle that read no device, at interval 0 (s): benched
+# devices must not spin the back-to-back loop
+IDLE_WAIT_S = 0.1
+
 # Device model (the 'Model' key of a device configuration) → module class
 DEVICE_CLASSES = {
     # Keysight DAQ970A/973A multimeter (via VISA interface)
@@ -221,7 +225,12 @@ if __name__ == "__main__":
     DB_BUCKET = CONF["Database"]["bucket"]
     DB_ORG = CONF["Database"]["org"]
     DB_TOKEN = CONF["Database"]["token"]
+    # 0: back to back, each cycle as soon as the previous one is done
     UPDATE_INTERVAL = float(CONF["Update"]["interval"])
+    if not UPDATE_INTERVAL >= 0:
+        msg = f'[Update] interval must be 0 or more seconds, not {UPDATE_INTERVAL}'
+        logger.error(msg)
+        raise LoggerError(msg)
     TIMEOUT = int(CONF["Devices"]["timeout"])
     # 'synchronous' (default): one blocking HTTP request per cycle.
     # 'batching': buffer client-side and flush every
@@ -399,9 +408,10 @@ if __name__ == "__main__":
             channel's own field plus companions such as the status
             text — see `readings`).
         time_ns : int
-            Timestamp of the poll (ns since epoch), recorded into the
-            point — stamped at read time, so a buffered or retried
-            write cannot skew the time series.
+            Timestamp of the reading (ns since epoch), recorded into the
+            point: the poll's, taken when the read returned, or the time
+            the module gives for the reading (`reading_times_ns`) — so a
+            buffered or retried write cannot skew the time series.
         """
         channel = device['Channels'][channel_id]
         tags = {
@@ -554,6 +564,8 @@ if __name__ == "__main__":
             # Per-device wall time of this cycle — names the culprit
             # in the overrun warning
             device_times = {}
+            # Whether a device was read this cycle (see IDLE_WAIT_S)
+            polled = False
             for device, state in zip(devices, device_states):
                 t_device = time.monotonic()
                 device_times[device['Device']] = 0.0
@@ -566,6 +578,7 @@ if __name__ == "__main__":
                     device_times[device['Device']] = (
                         time.monotonic() - t_device)
                     continue
+                polled = True
                 show, count = log_this_reading(device['Device'])
                 if show:
                     if device.get('Address') is not None:
@@ -590,13 +603,18 @@ if __name__ == "__main__":
                                 '\'status-field-key\' to null to accept)',
                                 channel_id, device['Device'])
                         # One timestamp per poll: all channels of a
-                        # device read share it
+                        # device read share it, but those whose time the
+                        # module knows better (`reading_times_ns`,
+                        # channel ID -> ns since the epoch, set by
+                        # `get_values`)
                         time_ns = time.time_ns()
+                        times = getattr(instance, 'reading_times_ns', None) or {}
                         new_points = [
                             point
                             for channel_id, value in readings.items()
                             if (point := build_point(
-                                device, channel_id, value, time_ns))
+                                device, channel_id, value,
+                                times.get(channel_id, time_ns)))
                             is not None]
                     except (LoggerError, DeviceError) as err:
                         logger.error(
@@ -651,7 +669,12 @@ if __name__ == "__main__":
             # stretch the period by the device read time (serial
             # instruments cost hundreds of ms per cycle). A cycle that
             # overruns its slot skips the missed slots (no catch-up
-            # bursts); overruns are logged, rate-limited.
+            # bursts); overruns are logged, rate-limited. At interval 0
+            # the next cycle starts at once: nothing to overrun.
+            if UPDATE_INTERVAL == 0:
+                if not polled:
+                    time.sleep(IDLE_WAIT_S)
+                continue
             next_cycle += UPDATE_INTERVAL
             now = time.monotonic()
             if now > next_cycle:
