@@ -61,6 +61,10 @@ The logger uses two configuration files. "config.ini" contains the configuration
 
 By default, the logger will look for "config.ini" in the current working directory. To use a specific "config.ini", use the command line option `-c` to define the path to that file, e.g., `python logger.py -c /path/to/config.ini`.
 
+## Device failures
+
+A device whose initialization or read fails, with any exception, is logged; the logger keeps running and goes on reading the other devices and writing their points. After three consecutive failed reads (`READ_FAIL_STREAK_BACKOFF`) the device is benched and reconnected at most every 10 s (`RECONNECT_INTERVAL_S`), re-initialized when a reconnect has not helped, until it reads again; its clock-sync heartbeats go on meanwhile. A single failed read costs only that reading.
+
 ## Database writing
 
 Points are written to InfluxDB once per update cycle. Every point carries an explicit timestamp taken when its device was read (all channels of one device poll share it), or the time the device module gives for the reading (`reading_times_ns`, currently `SRS CTC100`), so the recorded time series is independent of any write delay or buffering. An `[Update] interval` of 0 starts each cycle as soon as the previous one is done (a cycle that read no device waits 0.1 s).
