@@ -14,7 +14,8 @@ logger = logging.getLogger()
 
 device = {
     'Device': 'Red Pitaya lockbox',
-    'Address': '192.168.50.33',
+    # The lockbox's address (a placeholder: set it before running)
+    'Address': '192.0.2.10',
     'Timeout': 1.,
     'SCPIConnectionParams': {
         'Port': 5000,
